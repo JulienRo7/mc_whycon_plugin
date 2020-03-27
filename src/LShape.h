@@ -18,6 +18,11 @@ struct LShape
   void tick(double dt);
   /** Called to update the position of the marker from the vision system */
   void update(const sva::PTransformd & in, const sva::PTransformd & X_0_camera);
+  /** time since last update */
+  inline double lastUpdate() const
+  {
+    return lastUpdate_;
+  }
 private:
   double lastUpdate_ = 1;
 };

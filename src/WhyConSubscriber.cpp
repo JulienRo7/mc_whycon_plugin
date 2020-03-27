@@ -4,6 +4,7 @@
 #include <ros/ros.h>
 #include <whycon_lshape/WhyConLShapeMsg.h>
 #include <mc_rbdyn/rpy_utils.h>
+#include <tuple>
 
 namespace whycon_plugin
 {
@@ -89,12 +90,20 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl,
           Eigen::Vector3d pos { s.pose.position.x, s.pose.position.y, s.pose.position.z };
           Eigen::Quaterniond q { s.pose.orientation.w, s.pose.orientation.x, s.pose.orientation.y, s.pose.orientation.z };
           const auto & name = s.name;
+          std::lock_guard<std::mutex> lock(updateMutex_);
           if(!lshapes_.count(name))
           {
+            lshapes_[name].update({q,pos}, X_0_camera);
             newMarker(name);
+            // Add marker to the datastore
+            ctl_.datastore().make<std::tuple<sva::PTransformd,sva::PTransformd, double>>("WhyconPlugin::Marker::" + name, lshapes_.at(name).posW, lshapes_.at(name).pos, lshapes_.at(name).lastUpdate());
           }
-          std::lock_guard<std::mutex> lock(updateMutex_);
-          lshapes_[name] .update({q, pos}, X_0_camera);
+          else
+          {
+            lshapes_[name].update({q, pos}, X_0_camera);
+            // Update datastore marker
+            ctl_.datastore().assign("WhyconPlugin::Marker::" + name, std::tuple<sva::PTransformd,sva::PTransformd, double>{lshapes_.at(name).posW, lshapes_.at(name).pos, lshapes_.at(name).lastUpdate()});
+          }
         }
        };
     sub_ = nh_->subscribe<whycon_lshape::WhyConLShapeMsg>(methodConf("topic"), 1000, callback_);

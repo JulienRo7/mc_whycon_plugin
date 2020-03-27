@@ -1,0 +1,21 @@
+# Controler which data we publish and at what rate
+publish:
+  # Timestep of publication (ROS)
+  timestep: 0.01
+
+# Slam map ID
+#point_cloud_input_flame_: map
+#point_cloud_flame_name_: camera_
+
+#point_cloud_subscribe_topic: /rtabmap/cloud_map
+point_cloud_subscribe_topic: /camera/depth_registered/points
+#point_cloud_subscribe_topic: /voxel_cloud
+camera_odom_topic: /rtabmap/odom
+
+target_object_file: /home/masato/src/catkin_ws/grabo.pcd
+
+publish_result_as_tf: false
+publish_result_as_pose: true
+publish_result_as_PC2: true
+debug_mode: true
+publish_best_result: true

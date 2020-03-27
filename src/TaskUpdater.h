@@ -2,10 +2,7 @@
 
 #include <mc_tasks/LookAtTask.h>
 
-namespace sn_walking
-{
-
-namespace vision
+namespace whycon_plugin
 {
 
 /** Abstract interface to update a task from the vision */
@@ -21,6 +18,4 @@ struct TaskUpdater
   virtual bool updateLookAt(mc_tasks::LookAtTask & task) = 0;
 };
 
-} // namespace vision
-
-} // namespace sn_walking
+} /* whycon_plugin */

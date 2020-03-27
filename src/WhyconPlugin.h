@@ -13,6 +13,7 @@ namespace whycon_plugin
 {
 
 struct WhyConSubscriber;
+struct WhyConUpdater;
 
 struct WhyconPlugin : public mc_control::GlobalPlugin
 {
@@ -29,6 +30,7 @@ struct WhyconPlugin : public mc_control::GlobalPlugin
 private:
     std::shared_ptr<ros::NodeHandle> nh_;
     std::shared_ptr<WhyConSubscriber> whyconSubscriber_;
+    std::map<std::string, std::unique_ptr<WhyConUpdater>> taskUpdaters_;
 };
 
 } // namespace whycon_plugin

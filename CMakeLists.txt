@@ -15,15 +15,15 @@ set(plugin_SRC
 src/LShape.cpp
 src/WhyConSubscriber.cpp
 src/WhyconPlugin.cpp
-#src/WhyConUpdater.cpp
+src/WhyConUpdater.cpp
 )
 set(plugin_HDR
 src/LShape.h
 src/VisionSubscriber.h
 src/WhyConSubscriber.h
 src/WhyconPlugin.h
-#src/TaskUpdater.h
-#src/WhyConUpdater.h
+src/TaskUpdater.h
+src/WhyConUpdater.h
 )
 
 add_plugin(${PLUGIN_NAME} "${plugin_SRC}" "${plugin_HDR}")

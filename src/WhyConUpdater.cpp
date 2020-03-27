@@ -1,10 +1,7 @@
 #include "WhyConUpdater.h"
 #include <mc_tasks/PositionBasedVisServoTask.h>
 
-namespace sn_walking
-{
-
-namespace vision
+namespace whycon_plugin
 {
 
 WhyConUpdater::WhyConUpdater(const WhyConSubscriber & subscriber,
@@ -55,6 +52,4 @@ bool WhyConUpdater::updateLookAt(mc_tasks::LookAtTask & task)
   }
 }
 
-} // namespace vision
-
-} // namespace sn_walking
+} /* whycon_plugin */

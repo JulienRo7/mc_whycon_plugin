@@ -96,13 +96,11 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl,
             lshapes_[name].update({q,pos}, X_0_camera);
             newMarker(name);
             // Add marker to the datastore
-            ctl_.datastore().make<std::tuple<sva::PTransformd,sva::PTransformd, double>>("WhyconPlugin::Marker::" + name, lshapes_.at(name).posW, lshapes_.at(name).pos, lshapes_.at(name).lastUpdate());
+            ctl_.datastore().make<std::pair<sva::PTransformd, double>>("WhyconPlugin::Marker::" + name, lshapes_.at(name).posW, lshapes_.at(name).lastUpdate());
           }
           else
           {
             lshapes_[name].update({q, pos}, X_0_camera);
-            // Update datastore marker
-            ctl_.datastore().assign("WhyconPlugin::Marker::" + name, std::tuple<sva::PTransformd,sva::PTransformd, double>{lshapes_.at(name).posW, lshapes_.at(name).pos, lshapes_.at(name).lastUpdate()});
           }
         }
        };
@@ -124,7 +122,9 @@ void WhyConSubscriber::tick(double dt)
   std::lock_guard<std::mutex> lock(updateMutex_);
   for(auto & lshape : lshapes_)
   {
+    const auto & name = lshape.first;
     lshape.second.tick(dt);
+    ctl_.datastore().assign("WhyconPlugin::Marker::" + name, std::pair<sva::PTransformd, double>(lshapes_.at(name).posW, lshapes_.at(name).lastUpdate()));
   }
 }
 

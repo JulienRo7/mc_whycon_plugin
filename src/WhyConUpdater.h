@@ -3,10 +3,7 @@
 #include "TaskUpdater.h"
 #include "WhyConSubscriber.h"
 
-namespace sn_walking
-{
-
-namespace vision
+namespace whycon_plugin
 {
 
 /** Update a PBVS task based on WhyCon data */
@@ -35,6 +32,4 @@ private:
   sva::PTransformd offset_;
 };
 
-} // namespace vision
-
-} // namespace sn_walking
+} /* whycon_plugin */

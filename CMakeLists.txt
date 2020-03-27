@@ -13,19 +13,17 @@ find_package(whycon_plugin_3rd_party_ROS REQUIRED COMPONENTS roscpp whycon_lshap
 
 set(plugin_SRC
 src/LShape.cpp
-#src/VISPSubscriber.cpp
 src/WhyConSubscriber.cpp
-src/WhyConUpdater.cpp
 src/WhyconPlugin.cpp
+#src/WhyConUpdater.cpp
 )
 set(plugin_HDR
 src/LShape.h
-src/TaskUpdater.h
-#src/VISPSubscriber.h
 src/VisionSubscriber.h
 src/WhyConSubscriber.h
-src/WhyConUpdater.h
 src/WhyconPlugin.h
+#src/TaskUpdater.h
+#src/WhyConUpdater.h
 )
 
 add_plugin(${PLUGIN_NAME} "${plugin_SRC}" "${plugin_HDR}")

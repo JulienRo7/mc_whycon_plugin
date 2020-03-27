@@ -2,10 +2,7 @@
 
 #include <memory>
 
-namespace sn_walking
-{
-
-namespace vision
+namespace whycon_plugin
 {
 
 /** Generic interface to subscribe to vision information that will be used in
@@ -18,6 +15,4 @@ struct VisionSubscriber
 
 using VisionSubscriberPtr = std::shared_ptr<VisionSubscriber>;
 
-} // namespace vision
-
-} // namespace sn_walking
+} /* whycon_plugin */

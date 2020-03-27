@@ -11,10 +11,7 @@
 #include <mutex>
 #include <thread>
 
-namespace sn_walking
-{
-
-namespace vision
+namespace whycon_plugin
 {
 
 /** Subscribe to WhyCon data to provide up-to-date information on the markers */
@@ -29,6 +26,12 @@ struct WhyConSubscriber : public VisionSubscriber
   WhyConSubscriber(WhyConSubscriber &&) = delete;
   WhyConSubscriber & operator=(const WhyConSubscriber &) = delete;
   WhyConSubscriber & operator=(WhyConSubscriber &&) = delete;
+
+  /** set camera pose, to be called before tick() */
+  void cameraPose(const sva::PTransformd & pose)
+  {
+    X_0_camera = pose;
+  }
 
   void tick(double dt) override;
 
@@ -49,8 +52,8 @@ private:
   std::unordered_map<std::string, LShape> lshapes_;
   void newMarker(const std::string & name);
   ros::Subscriber sub_;
+  /* Store the world position of the camera */
+  sva::PTransformd X_0_camera = sva::PTransformd::Identity();
 };
 
-} // namespace vision
-
-} // namespace sn_walking
+} /* whycon_plugin */

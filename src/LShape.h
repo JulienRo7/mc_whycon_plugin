@@ -2,10 +2,7 @@
 
 #include <SpaceVecAlg/SpaceVecAlg>
 
-namespace sn_walking
-{
-
-namespace vision
+namespace whycon_plugin
 {
 
 /** Represent an L-shape detected by the WhyCon detector */
@@ -25,6 +22,4 @@ private:
   double lastUpdate_ = 1;
 };
 
-} // namespace vision
-
-} // namespace sn_walking
+} /* whycon_plugin */

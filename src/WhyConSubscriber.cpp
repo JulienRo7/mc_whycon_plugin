@@ -3,11 +3,9 @@
 // ROS stuff
 #include <ros/ros.h>
 #include <whycon_lshape/WhyConLShapeMsg.h>
+#include <mc_rbdyn/rpy_utils.h>
 
-namespace sn_walking
-{
-
-namespace vision
+namespace whycon_plugin
 {
 
 WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl,
@@ -27,39 +25,42 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl,
     std::unordered_map<std::string, std::function<void(const mc_control::MCController&, LShape&)>> markerUpdates_;
     for(auto k : markers.keys())
     {
+      std::string robotName = markers(k)("robot", ctl.robot().name());
       std::string relative = markers(k)("relative", std::string(""));
       std::string relative_body = markers(k)("relative_body", std::string(""));
-      sva::PTransformd pos = markers(k)("pos");
+      sva::PTransformd pos = markers(k)("pos", sva::PTransformd::Identity());
       if(relative.size())
       {
-        markerUpdates_[k] = [pos,relative](const mc_control::MCController & ctl, LShape & shape)
+        markerUpdates_[k] = [this,robotName,pos,relative](const mc_control::MCController & ctl, LShape & shape)
         {
-          auto X_camera_0 = ctl.cameraPose().inv();
+          auto & robot = ctl.robots().robot(robotName);
+          auto X_camera_0 = X_0_camera.inv();
           auto X_relative_marker = pos;
-          auto X_0_marker = X_relative_marker * ctl.robot().surfacePose(relative);
-          shape.update(X_0_marker * X_camera_0, X_camera_0.inv());
+          auto X_0_marker = X_relative_marker * robot.surfacePose(relative);
+          shape.update(X_0_marker * X_camera_0, X_0_camera);
         };
       }
       else if(relative_body.size())
       {
-        markerUpdates_[k] = [pos,relative_body](const mc_control::MCController & ctl, LShape & shape)
+        markerUpdates_[k] = [this,robotName,pos,relative_body](const mc_control::MCController & ctl, LShape & shape)
         {
-          auto X_camera_0 = ctl.cameraPose().inv();
+          auto & robot = ctl.robots().robot(robotName);
+          auto X_camera_0 = X_0_camera.inv();
           auto X_relative_marker = pos;
-          auto X_0_body = ctl.robot().bodyPosW(relative_body);
+          auto X_0_body = robot.bodyPosW(relative_body);
           Eigen::Vector3d rpy = mc_rbdyn::rpyFromMat(X_0_body.rotation());
           X_0_body.rotation() = mc_rbdyn::rpyToMat(0, 0, rpy.z());
           auto X_0_marker = X_relative_marker * X_0_body;
-          shape.update(X_0_marker * X_camera_0, X_camera_0.inv());
+          shape.update(X_0_marker * X_camera_0, X_0_camera);
         };
       }
       else
       {
-        markerUpdates_[k] = [pos](const mc_control::MCController & ctl, LShape & shape)
+        markerUpdates_[k] = [this,pos](const mc_control::MCController & ctl, LShape & shape)
         {
-          auto X_camera_0 = ctl.cameraPose().inv();
+          auto X_camera_0 = X_0_camera.inv();
           auto X_0_marker = pos;
-          shape.update(X_0_marker * X_camera_0, X_camera_0.inv());
+          shape.update(X_0_marker * X_camera_0, X_0_camera);
         };
       }
       newMarker(k);
@@ -83,7 +84,6 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl,
     boost::function<void(const whycon_lshape::WhyConLShapeMsg&)> callback_ =
        [this](const whycon_lshape::WhyConLShapeMsg & msg)
        {
-        auto X_0_camera = ctl_.cameraPose();
         for(const auto & s : msg.shapes)
         {
           Eigen::Vector3d pos { s.pose.position.x, s.pose.position.y, s.pose.position.z };
@@ -144,12 +144,10 @@ void WhyConSubscriber::newMarker(const std::string & name)
   ctl_.logger().addLogEntry("WhyConMarkers_" + name + "_World", [this,name]() -> const sva::PTransformd & { return lshapes_.at(name).posW; });
   auto gui = ctl_.gui();
   if(!gui) { return; }
-  gui->addElement({"WhyCon", "Markers"},
+  gui->addElement({"Plugins", "WhyCon", "Markers"},
                   mc_rtc::gui::Transform(name,
-                                         [this,name]() { return lshapes_.at(name).posW; },
-                                         [](const sva::PTransformd &){}));
+                                         [this,name]() { return lshapes_.at(name).posW; }
+                                         ));
 }
 
-} // namespace vision
-
-} // namespace sn_walking
+} /* whycon_plugin */

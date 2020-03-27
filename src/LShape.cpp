@@ -1,9 +1,6 @@
 #include "LShape.h"
 
-namespace sn_walking
-{
-
-namespace vision
+namespace whycon_plugin
 {
 
 void LShape::tick(double dt)
@@ -20,6 +17,5 @@ void LShape::update(const sva::PTransformd & in, const sva::PTransformd & X_0_ca
   lastUpdate_ = 0;
 }
 
-}
+} /* whycon_plugin */
 
-}

@@ -9,8 +9,10 @@
 #include <mc_control/GlobalPlugin.h>
 #include <mc_control/GlobalPluginMacros.h>
 
-namespace mc_plugin
+namespace whycon_plugin
 {
+
+struct WhyConSubscriber;
 
 struct WhyconPlugin : public mc_control::GlobalPlugin
 {
@@ -20,12 +22,13 @@ struct WhyconPlugin : public mc_control::GlobalPlugin
 
     void reset(mc_control::MCGlobalController &controller) override;
 
-    inline void before(mc_control::MCGlobalController &) override {}
+    void before(mc_control::MCGlobalController &) override;
 
     void after(mc_control::MCGlobalController &controller) override {};
 
 private:
     std::shared_ptr<ros::NodeHandle> nh_;
+    std::shared_ptr<WhyConSubscriber> whyconSubscriber_;
 };
 
-} // namespace mc_plugin
+} // namespace whycon_plugin

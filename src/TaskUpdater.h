@@ -18,4 +18,4 @@ struct TaskUpdater
   virtual bool updateLookAt(mc_tasks::LookAtTask & task) = 0;
 };
 
-} /* whycon_plugin */
+} // namespace whycon_plugin

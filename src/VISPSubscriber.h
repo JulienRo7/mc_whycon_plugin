@@ -19,13 +19,15 @@ namespace vision
 /** Represent an object detected by the VISP detector */
 struct VISPObject
 {
-  VISPObject(const std::string & name, const std::string & robot, const std::string & tf, const sva::PTransformd & offset)
-    : name(name), robot(robot), tf(tf), offset(offset)
-  {}
+  VISPObject(const std::string & name,
+             const std::string & robot,
+             const std::string & tf,
+             const sva::PTransformd & offset)
+  : name(name), robot(robot), tf(tf), offset(offset)
+  {
+  }
 
-  VISPObject()
-    :name(""), robot(""), tf("")
-  {}
+  VISPObject() : name(""), robot(""), tf("") {}
 
   /** Store object's name */
   std::string name;
@@ -68,8 +70,7 @@ private:
 /** Subscribe to VISP data to provide up-to-date information */
 struct VISPSubscriber : public VisionSubscriber
 {
-  VISPSubscriber(Controller & controller,
-                  const mc_rtc::Configuration & config);
+  VISPSubscriber(Controller & controller, const mc_rtc::Configuration & config);
 
   ~VISPSubscriber();
 
@@ -84,9 +85,9 @@ struct VISPSubscriber : public VisionSubscriber
   bool visible(const std::string & name) const;
 
   const sva::PTransformd & X_camera_object(const std::string & object) const;
-  
+
   const sva::PTransformd & X_0_object(const std::string & object) const;
-  
+
   const VISPObject & object(const std::string & object) const
   {
     return objects_.at(object);

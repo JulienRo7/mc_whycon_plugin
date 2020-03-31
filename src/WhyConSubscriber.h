@@ -17,8 +17,7 @@ namespace whycon_plugin
 /** Subscribe to WhyCon data to provide up-to-date information on the markers */
 struct WhyConSubscriber : public VisionSubscriber
 {
-  WhyConSubscriber(mc_control::MCController & controller,
-                   const mc_rtc::Configuration & config);
+  WhyConSubscriber(mc_control::MCController & controller, const mc_rtc::Configuration & config);
 
   ~WhyConSubscriber();
 
@@ -43,6 +42,7 @@ struct WhyConSubscriber : public VisionSubscriber
 
   /** Returns the world position of a given marker */
   const sva::PTransformd & X_0_marker(const std::string & marker) const;
+
 private:
   bool running_ = true;
   std::shared_ptr<ros::NodeHandle> nh_;
@@ -56,4 +56,4 @@ private:
   sva::PTransformd X_0_camera = sva::PTransformd::Identity();
 };
 
-} /* whycon_plugin */
+} // namespace whycon_plugin

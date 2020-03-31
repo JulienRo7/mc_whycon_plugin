@@ -15,4 +15,4 @@ struct VisionSubscriber
 
 using VisionSubscriberPtr = std::shared_ptr<VisionSubscriber>;
 
-} /* whycon_plugin */
+} // namespace whycon_plugin

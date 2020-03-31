@@ -5,7 +5,8 @@ namespace whycon_plugin
 {
 
 WhyConUpdater::WhyConUpdater(const WhyConSubscriber & subscriber,
-                             const std::string & surface, const std::string & env,
+                             const std::string & surface,
+                             const std::string & env,
                              const sva::PTransformd & offset)
 : subscriber_(subscriber), surface_(surface), env_(env), offset_(offset)
 {
@@ -13,7 +14,7 @@ WhyConUpdater::WhyConUpdater(const WhyConSubscriber & subscriber,
 
 bool WhyConUpdater::update(mc_tasks::MetaTask & task_)
 {
-  auto & task = static_cast<mc_tasks::PositionBasedVisServoTask&>(task_);
+  auto & task = static_cast<mc_tasks::PositionBasedVisServoTask &>(task_);
   bool visible = true;
   if(!subscriber_.visible(surface_))
   {
@@ -35,8 +36,10 @@ bool WhyConUpdater::update(mc_tasks::MetaTask & task_)
   auto X_t_s = X_camera_surface * X_camera_target.inv();
   if(once)
   {
-    std::cout << "X_camera_target " << X_camera_target.translation().transpose() << "\n" << X_camera_target.rotation() << "\n";
-    std::cout << "X_camera_surface " << X_camera_surface.translation().transpose() << "\n" << X_camera_surface.rotation() << "\n";
+    std::cout << "X_camera_target " << X_camera_target.translation().transpose() << "\n"
+              << X_camera_target.rotation() << "\n";
+    std::cout << "X_camera_surface " << X_camera_surface.translation().transpose() << "\n"
+              << X_camera_surface.rotation() << "\n";
     std::cout << "X_t_s " << X_t_s.translation().transpose() << "\n" << X_t_s.rotation() << "\n";
     once = false;
   }
@@ -52,4 +55,4 @@ bool WhyConUpdater::updateLookAt(mc_tasks::LookAtTask & task)
   }
 }
 
-} /* whycon_plugin */
+} // namespace whycon_plugin

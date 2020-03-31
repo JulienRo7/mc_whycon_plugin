@@ -17,7 +17,8 @@ struct WhyConUpdater : public TaskUpdater
    * \param offset Offset from the environment marker to the target object
    */
   WhyConUpdater(const WhyConSubscriber & subscriber,
-                const std::string & surface, const std::string & env,
+                const std::string & surface,
+                const std::string & env,
                 const sva::PTransformd & offset = sva::PTransformd::Identity());
 
   /** Update a PBVS task based on the information provided by the WhyCon subscriber */
@@ -25,6 +26,7 @@ struct WhyConUpdater : public TaskUpdater
 
   /** Update look at task to look at the environment marker */
   bool updateLookAt(mc_tasks::LookAtTask & task) override;
+
 private:
   const WhyConSubscriber & subscriber_;
   std::string surface_;
@@ -32,4 +34,4 @@ private:
   sva::PTransformd offset_;
 };
 
-} /* whycon_plugin */
+} // namespace whycon_plugin

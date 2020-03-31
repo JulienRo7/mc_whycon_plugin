@@ -23,8 +23,9 @@ struct LShape
   {
     return lastUpdate_;
   }
+
 private:
   double lastUpdate_ = 1;
 };
 
-} /* whycon_plugin */
+} // namespace whycon_plugin

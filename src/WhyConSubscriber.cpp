@@ -1,18 +1,16 @@
 #include "WhyConSubscriber.h"
 
 // ROS stuff
-#include <ros/ros.h>
-#include <whycon_lshape/WhyConLShapeMsg.h>
 #include <mc_rbdyn/rpy_utils.h>
+#include <ros/ros.h>
 #include <tuple>
+#include <whycon_lshape/WhyConLShapeMsg.h>
 
 namespace whycon_plugin
 {
 
-WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl,
-                                   const mc_rtc::Configuration & config)
-: nh_(mc_rtc::ROSBridge::get_node_handle()),
-  ctl_(ctl)
+WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc::Configuration & config)
+: nh_(mc_rtc::ROSBridge::get_node_handle()), ctl_(ctl)
 {
   if(!nh_)
   {
@@ -23,7 +21,7 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl,
   if(simulation)
   {
     auto markers = methodConf("markers");
-    std::unordered_map<std::string, std::function<void(const mc_control::MCController&, LShape&)>> markerUpdates_;
+    std::unordered_map<std::string, std::function<void(const mc_control::MCController &, LShape &)>> markerUpdates_;
     for(auto k : markers.keys())
     {
       std::string robotName = markers(k)("robot", ctl.robot().name());
@@ -32,8 +30,7 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl,
       sva::PTransformd pos = markers(k)("pos", sva::PTransformd::Identity());
       if(relative.size())
       {
-        markerUpdates_[k] = [this,robotName,pos,relative](const mc_control::MCController & ctl, LShape & shape)
-        {
+        markerUpdates_[k] = [this, robotName, pos, relative](const mc_control::MCController & ctl, LShape & shape) {
           auto & robot = ctl.robots().robot(robotName);
           auto X_camera_0 = X_0_camera.inv();
           auto X_relative_marker = pos;
@@ -43,8 +40,8 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl,
       }
       else if(relative_body.size())
       {
-        markerUpdates_[k] = [this,robotName,pos,relative_body](const mc_control::MCController & ctl, LShape & shape)
-        {
+        markerUpdates_[k] = [this, robotName, pos, relative_body](const mc_control::MCController & ctl,
+                                                                  LShape & shape) {
           auto & robot = ctl.robots().robot(robotName);
           auto X_camera_0 = X_0_camera.inv();
           auto X_relative_marker = pos;
@@ -57,8 +54,7 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl,
       }
       else
       {
-        markerUpdates_[k] = [this,pos](const mc_control::MCController & ctl, LShape & shape)
-        {
+        markerUpdates_[k] = [this, pos](const mc_control::MCController & ctl, LShape & shape) {
           auto X_camera_0 = X_0_camera.inv();
           auto X_0_marker = pos;
           shape.update(X_0_marker * X_camera_0, X_0_camera);
@@ -66,8 +62,7 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl,
       }
       newMarker(k);
     }
-    updateThread_ = std::thread([this,markerUpdates_]()
-    {
+    updateThread_ = std::thread([this, markerUpdates_]() {
       ros::Rate rt(30);
       while(ros::ok() && running_)
       {
@@ -82,28 +77,29 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl,
   }
   else
   {
-    boost::function<void(const whycon_lshape::WhyConLShapeMsg&)> callback_ =
-       [this](const whycon_lshape::WhyConLShapeMsg & msg)
-       {
-        for(const auto & s : msg.shapes)
+    boost::function<void(const whycon_lshape::WhyConLShapeMsg &)> callback_ = [this](
+                                                                                  const whycon_lshape::WhyConLShapeMsg &
+                                                                                      msg) {
+      for(const auto & s : msg.shapes)
+      {
+        Eigen::Vector3d pos{s.pose.position.x, s.pose.position.y, s.pose.position.z};
+        Eigen::Quaterniond q{s.pose.orientation.w, s.pose.orientation.x, s.pose.orientation.y, s.pose.orientation.z};
+        const auto & name = s.name;
+        std::lock_guard<std::mutex> lock(updateMutex_);
+        if(!lshapes_.count(name))
         {
-          Eigen::Vector3d pos { s.pose.position.x, s.pose.position.y, s.pose.position.z };
-          Eigen::Quaterniond q { s.pose.orientation.w, s.pose.orientation.x, s.pose.orientation.y, s.pose.orientation.z };
-          const auto & name = s.name;
-          std::lock_guard<std::mutex> lock(updateMutex_);
-          if(!lshapes_.count(name))
-          {
-            lshapes_[name].update({q,pos}, X_0_camera);
-            newMarker(name);
-            // Add marker to the datastore
-            ctl_.datastore().make<std::pair<sva::PTransformd, double>>("WhyconPlugin::Marker::" + name, lshapes_.at(name).posW, lshapes_.at(name).lastUpdate());
-          }
-          else
-          {
-            lshapes_[name].update({q, pos}, X_0_camera);
-          }
+          lshapes_[name].update({q, pos}, X_0_camera);
+          newMarker(name);
+          // Add marker to the datastore
+          ctl_.datastore().make<std::pair<sva::PTransformd, double>>(
+              "WhyconPlugin::Marker::" + name, lshapes_.at(name).posW, lshapes_.at(name).lastUpdate());
         }
-       };
+        else
+        {
+          lshapes_[name].update({q, pos}, X_0_camera);
+        }
+      }
+    };
     sub_ = nh_->subscribe<whycon_lshape::WhyConLShapeMsg>(methodConf("topic"), 1000, callback_);
   }
 }
@@ -124,7 +120,9 @@ void WhyConSubscriber::tick(double dt)
   {
     const auto & name = lshape.first;
     lshape.second.tick(dt);
-    ctl_.datastore().assign("WhyconPlugin::Marker::" + name, std::pair<sva::PTransformd, double>(lshapes_.at(name).posW, lshapes_.at(name).lastUpdate()));
+    ctl_.datastore().assign(
+        "WhyconPlugin::Marker::" + name,
+        std::pair<sva::PTransformd, double>(lshapes_.at(name).posW, lshapes_.at(name).lastUpdate()));
   }
 }
 
@@ -149,14 +147,17 @@ const sva::PTransformd & WhyConSubscriber::X_0_marker(const std::string & marker
 void WhyConSubscriber::newMarker(const std::string & name)
 {
   LOG_INFO("[WhyConSubscriber] New marker: " << name)
-  ctl_.logger().addLogEntry("WhyConMarkers_" + name, [this,name]() -> const sva::PTransformd & { return lshapes_.at(name).pos; });
-  ctl_.logger().addLogEntry("WhyConMarkers_" + name + "_World", [this,name]() -> const sva::PTransformd & { return lshapes_.at(name).posW; });
+  ctl_.logger().addLogEntry("WhyConMarkers_" + name,
+                            [this, name]() -> const sva::PTransformd & { return lshapes_.at(name).pos; });
+  ctl_.logger().addLogEntry("WhyConMarkers_" + name + "_World",
+                            [this, name]() -> const sva::PTransformd & { return lshapes_.at(name).posW; });
   auto gui = ctl_.gui();
-  if(!gui) { return; }
+  if(!gui)
+  {
+    return;
+  }
   gui->addElement({"Plugins", "WhyCon", "Markers"},
-                  mc_rtc::gui::Transform(name,
-                                         [this,name]() { return lshapes_.at(name).posW; }
-                                         ));
+                  mc_rtc::gui::Transform(name, [this, name]() { return lshapes_.at(name).posW; }));
 }
 
-} /* whycon_plugin */
+} // namespace whycon_plugin

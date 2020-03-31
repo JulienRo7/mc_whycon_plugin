@@ -17,5 +17,4 @@ void LShape::update(const sva::PTransformd & in, const sva::PTransformd & X_0_ca
   lastUpdate_ = 0;
 }
 
-} /* whycon_plugin */
-
+} // namespace whycon_plugin

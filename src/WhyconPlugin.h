@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include <mc_rtc/ros.h>
-#include <mc_rtc/DataStore.h>
 #include <mc_control/GlobalPlugin.h>
 #include <mc_control/GlobalPluginMacros.h>
+#include <mc_rtc/DataStore.h>
+#include <mc_rtc/ros.h>
 
 namespace whycon_plugin
 {
@@ -17,23 +17,23 @@ struct WhyConUpdater;
 
 struct WhyconPlugin : public mc_control::GlobalPlugin
 {
-    WhyconPlugin();
+  WhyconPlugin();
 
-    void init(mc_control::MCGlobalController &controller, const mc_rtc::Configuration &config) override;
+  void init(mc_control::MCGlobalController & controller, const mc_rtc::Configuration & config) override;
 
-    void reset(mc_control::MCGlobalController &controller) override;
+  void reset(mc_control::MCGlobalController & controller) override;
 
-    void before(mc_control::MCGlobalController &) override;
+  void before(mc_control::MCGlobalController &) override;
 
-    void after(mc_control::MCGlobalController &controller) override {};
+  void after(mc_control::MCGlobalController & controller) override{};
 
 private:
-    std::shared_ptr<ros::NodeHandle> nh_;
-    std::shared_ptr<WhyConSubscriber> whyconSubscriber_;
-    std::map<std::string, std::unique_ptr<WhyConUpdater>> taskUpdaters_;
+  std::shared_ptr<ros::NodeHandle> nh_;
+  std::shared_ptr<WhyConSubscriber> whyconSubscriber_;
+  std::map<std::string, std::unique_ptr<WhyConUpdater>> taskUpdaters_;
 
-    std::string cameraSurface_;
-    sva::PTransformd cameraOffset_;
+  std::string cameraSurface_;
+  sva::PTransformd cameraOffset_;
 };
 
 } // namespace whycon_plugin

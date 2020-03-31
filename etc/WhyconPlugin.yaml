@@ -1,10 +1,9 @@
 camera:
-  # Parent body of the camera
-  body: rgbd_link
+  surface: TopCameraRGB
   # Offset from the parent body to the camera
   offset:
     translation: [0, 0, 0]
-    rotation: [0, 0, 0]
+    rotation: [0, 0, -1.57]
 
 # whether we are running in simulation
 simulation: false

@@ -31,6 +31,9 @@ private:
     std::shared_ptr<ros::NodeHandle> nh_;
     std::shared_ptr<WhyConSubscriber> whyconSubscriber_;
     std::map<std::string, std::unique_ptr<WhyConUpdater>> taskUpdaters_;
+
+    std::string cameraSurface_;
+    sva::PTransformd cameraOffset_;
 };
 
 } // namespace whycon_plugin

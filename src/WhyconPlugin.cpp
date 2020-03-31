@@ -1,6 +1,7 @@
 #include "WhyconPlugin.h"
 #include "WhyConSubscriber.h"
 #include "WhyConUpdater.h"
+#include <mc_rbdyn/rpy_utils.h>
 
 
 namespace whycon_plugin
@@ -43,6 +44,29 @@ void WhyconPlugin::init(mc_control::MCGlobalController &controller, const mc_rtc
                                         taskUpdaters_.at(name)->updateLookAt(task);
                                       });
 
+  if(config("camera").has("surface"))
+  {
+    config("camera")("surface", cameraSurface_);
+    cameraOffset_ = config("camera")("offset", sva::PTransformd::Identity());
+  }
+
+  ctl.gui()->addElement({"Plugins", "WhyCon"},
+                        mc_rtc::gui::Label("Status",
+                              []()
+                              {
+                                return "running";
+                              }),
+                        mc_rtc::gui::ArrayInput("Camera offset RPY [deg]", {"x", "y", "z"},
+                          [this]() -> Eigen::Vector3d {
+                            return mc_rbdyn::rpyFromMat(cameraOffset_.rotation()) * 180 / mc_rtc::constants::PI;
+                        },
+                        [this](const Eigen::Vector3d & offset) {
+                          cameraOffset_.rotation() = mc_rbdyn::rpyToMat(offset * mc_rtc::constants::PI / 180);
+                        }),
+                             mc_rtc::gui::ArrayInput("Camera offset translation [m]", {"x", "y", "z"},
+                        [this]() -> const Eigen::Vector3d & { return cameraOffset_.translation(); },
+                        [this](const Eigen::Vector3d & offset) { cameraOffset_.translation() = offset; }));
+
   LOG_SUCCESS("[Plugin::WhyconPlugin] initialized");
 }
 
@@ -54,8 +78,7 @@ void WhyconPlugin::before(mc_control::MCGlobalController &controller)
 {
   // Get Camera position
   auto & ctl = controller.controller();
-  auto X_0_camera = ctl.robot().surfacePose("TopCameraRGB");
-
+  auto X_0_camera = cameraOffset_ * ctl.robot().surfacePose("TopCameraRGB");
   whyconSubscriber_->cameraPose(X_0_camera);
   whyconSubscriber_->tick(controller.controller().timeStep);
 }

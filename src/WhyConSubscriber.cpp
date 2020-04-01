@@ -63,6 +63,7 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
       newMarker(k);
     }
     updateThread_ = std::thread([this, markerUpdates_]() {
+      connected_ = true;
       ros::Rate rt(30);
       while(ros::ok() && running_)
       {
@@ -100,8 +101,42 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
         }
       }
     };
-    sub_ = nh_->subscribe<whycon_lshape::WhyConLShapeMsg>(methodConf("topic"), 1000, callback_);
+    std::string topic = methodConf("topic");
+    try
+    {
+      sub_ = nh_->subscribe<whycon_lshape::WhyConLShapeMsg>(topic, 1000, callback_);
+      if(sub_.getNumPublishers() > 1)
+      {
+        LOG_SUCCESS("[RobotTransformROSPlugin] Subscribed to topic " << topic);
+      }
+      else
+      {
+        LOG_WARNING("[RobotTransformROSPlugin] No publisher on topic " << topic);
+        connected_ = false;
+      }
+    }
+    catch(...)
+    {
+      LOG_WARNING("[RobotTransformROSPlugin] Could not connect to topic " << topic << "(invalid name)");
+      connected_ = false;
+    }
   }
+
+  ctl_.gui()->addElement({"Plugins", "WhyCon"},
+                         mc_rtc::gui::Label("Status",
+                         [this, simulation]()
+                         {
+                          if(simulation)
+                          {
+                           return "simulation";
+                          }
+                          else
+                          {
+                            return connected_ ? "connected": "disconnected";
+                          }
+                         }));
+
+
 }
 
 WhyConSubscriber::~WhyConSubscriber()

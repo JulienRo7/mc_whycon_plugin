@@ -52,6 +52,7 @@ private:
   std::unordered_map<std::string, LShape> lshapes_;
   void newMarker(const std::string & name);
   ros::Subscriber sub_;
+  bool connected_ = false;
   /* Store the world position of the camera */
   sva::PTransformd X_0_camera = sva::PTransformd::Identity();
 };

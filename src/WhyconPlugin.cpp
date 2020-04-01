@@ -25,7 +25,7 @@ void WhyconPlugin::init(mc_control::MCGlobalController & controller, const mc_rt
   ctl.datastore().make_call("WhyconPlugin::addTaskUpdater", [this](const std::string & name,
                                                                    const std::string & surface, const std::string & env,
                                                                    const sva::PTransformd & offset) {
-    taskUpdaters_[name] = std::make_unique<WhyConUpdater>(*whyconSubscriber_, surface, env, offset);
+    taskUpdaters_[name] = std::unique_ptr<WhyConUpdater>(new WhyConUpdater(*whyconSubscriber_, surface, env, offset));
   });
   ctl.datastore().make_call("WhyconPlugin::removeTaskUpdater",
                             [this](const std::string & name) { taskUpdaters_.erase(name); });

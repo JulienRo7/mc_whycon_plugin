@@ -14,6 +14,14 @@ WhyconPlugin::WhyconPlugin() : nh_(mc_rtc::ROSBridge::get_node_handle())
   }
 }
 
+WhyconPlugin::~WhyconPlugin()
+{
+  if(spinner_.joinable())
+  {
+    spinner_.join();
+  }
+}
+
 void WhyconPlugin::init(mc_control::MCGlobalController & controller, const mc_rtc::Configuration & config)
 {
   auto & ctl = controller.controller();
@@ -56,7 +64,7 @@ void WhyconPlugin::init(mc_control::MCGlobalController & controller, const mc_rt
   }
 
   ctl.gui()->addElement(
-      {"Plugins", "WhyCon"}, mc_rtc::gui::Label("Status", []() { return "running"; }),
+      {"Plugins", "WhyCon"}, 
       mc_rtc::gui::ArrayInput("Camera offset RPY [deg]", {"x", "y", "z"},
                               [this]() -> Eigen::Vector3d {
                                 return mc_rbdyn::rpyFromMat(cameraOffset_.rotation()) * 180 / mc_rtc::constants::PI;
@@ -68,8 +76,18 @@ void WhyconPlugin::init(mc_control::MCGlobalController & controller, const mc_rt
                               [this]() -> const Eigen::Vector3d & { return cameraOffset_.translation(); },
                               [this](const Eigen::Vector3d & offset) { cameraOffset_.translation() = offset; }));
 
-  LOG_SUCCESS("[Plugin::WhyconPlugin] initialized");
+  spinner_ = std::thread([]()
+	{
+	  ros::Rate rt(30);
+	  while(ros::ok())
+          {
+            ros::spinOnce();
+            rt.sleep();
+          }
+	});
+
   initialized_ = true;
+  LOG_SUCCESS("[Plugin::WhyconPlugin] initialized");
 }
 
 void WhyconPlugin::reset(mc_control::MCGlobalController & controller) { }

@@ -8,6 +8,7 @@
 #include <mc_control/GlobalPluginMacros.h>
 #include <mc_rtc/DataStore.h>
 #include <mc_rtc/ros.h>
+#include <thread>
 
 namespace whycon_plugin
 {
@@ -18,6 +19,7 @@ struct WhyConUpdater;
 struct WhyconPlugin : public mc_control::GlobalPlugin
 {
   WhyconPlugin();
+  ~WhyconPlugin();
 
   void init(mc_control::MCGlobalController & controller, const mc_rtc::Configuration & config) override;
 
@@ -38,6 +40,8 @@ private:
   /* temporary hack. for now in mc_openrtm before() is called as soon as we do connectComponent, but
 init() is only called when starting the component */
   bool initialized_ = false;
+
+  std::thread spinner_;
 };
 
 } // namespace whycon_plugin

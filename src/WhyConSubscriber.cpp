@@ -63,7 +63,6 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
       newMarker(k);
     }
     updateThread_ = std::thread([this, markerUpdates_]() {
-      connected_ = true;
       ros::Rate rt(30);
       while(ros::ok() && running_)
       {
@@ -101,23 +100,14 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
         }
       }
     };
-    std::string topic = methodConf("topic");
+    methodConf("topic", topic_);
     try
     {
-      sub_ = nh_->subscribe<whycon_lshape::WhyConLShapeMsg>(topic, 1000, callback_);
-      if(sub_.getNumPublishers() > 1)
-      {
-        LOG_SUCCESS("[RobotTransformROSPlugin] Subscribed to topic " << topic);
-      }
-      else
-      {
-        LOG_WARNING("[RobotTransformROSPlugin] No publisher on topic " << topic);
-        connected_ = false;
-      }
+      sub_ = nh_->subscribe<whycon_lshape::WhyConLShapeMsg>(topic_, 1000, callback_);
     }
     catch(...)
     {
-      LOG_WARNING("[RobotTransformROSPlugin] Could not connect to topic " << topic << "(invalid name)");
+      LOG_WARNING("[WhyconPluginPlugin] Could not connect to topic " << topic_ << "(invalid name)");
       connected_ = false;
     }
   }
@@ -134,9 +124,12 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
                           {
                             return connected_ ? "connected": "disconnected";
                           }
-                         }));
-
-
+                         }),
+                         mc_rtc::gui::Label("Topic",
+			 [this]()
+			 {
+			   return topic_;
+			 }));
 }
 
 WhyConSubscriber::~WhyConSubscriber()
@@ -150,6 +143,22 @@ WhyConSubscriber::~WhyConSubscriber()
 
 void WhyConSubscriber::tick(double dt)
 {
+  if(sub_.getNumPublishers() > 0)
+  {
+    if(!connected_)
+    {
+      LOG_SUCCESS("[WhyconPluginPlugin] Connected to topic \"" << topic_ << "\"");
+      connected_ = true;
+    }
+  }
+  else
+  {
+    if(connected_)
+    {
+      LOG_WARNING("[WhyconPluginPlugin] All publishers disconnected from topic \""<< topic_ << "\"");
+      connected_ = false;
+    }
+  }
   std::lock_guard<std::mutex> lock(updateMutex_);
   for(auto & lshape : lshapes_)
   {

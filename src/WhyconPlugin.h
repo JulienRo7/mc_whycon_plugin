@@ -34,6 +34,10 @@ private:
 
   std::string cameraSurface_;
   sva::PTransformd cameraOffset_;
+
+  /* temporary hack. for now in mc_openrtm before() is called as soon as we do connectComponent, but
+init() is only called when starting the component */
+  bool initialized_ = false;
 };
 
 } // namespace whycon_plugin

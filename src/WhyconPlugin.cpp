@@ -36,9 +36,22 @@ void WhyconPlugin::init(mc_control::MCGlobalController & controller, const mc_rt
       "WhyconPlugin::updateLookAtTask",
       [this](const std::string & name, mc_tasks::LookAtTask & task) { taskUpdaters_.at(name)->updateLookAt(task); });
 
+  if(!config.has("camera"))
+  {
+    LOG_ERROR_AND_THROW(std::runtime_error, "[WhyconPlugin] No entry named camera in configuration");
+  }
+
+  if(!config("camera").has("surface"))
+  {
+    LOG_ERROR_AND_THROW(std::runtime_error, "[WhyconPlugin] No entry camera/surface in configuration");
+  }
   if(config("camera").has("surface"))
   {
     config("camera")("surface", cameraSurface_);
+    if(!ctl.robot().hasSurface(cameraSurface_))
+    {
+    	LOG_ERROR_AND_THROW(std::runtime_error, "[WhyconPlugin] No surface named " << cameraSurface_ << " for the camera");
+    }
     cameraOffset_ = config("camera")("offset", sva::PTransformd::Identity());
   }
 
@@ -56,12 +69,14 @@ void WhyconPlugin::init(mc_control::MCGlobalController & controller, const mc_rt
                               [this](const Eigen::Vector3d & offset) { cameraOffset_.translation() = offset; }));
 
   LOG_SUCCESS("[Plugin::WhyconPlugin] initialized");
+  initialized_ = true;
 }
 
-void WhyconPlugin::reset(mc_control::MCGlobalController & controller) {}
+void WhyconPlugin::reset(mc_control::MCGlobalController & controller) { }
 
 void WhyconPlugin::before(mc_control::MCGlobalController & controller)
 {
+  if(!initialized_) return;
   // Get Camera position
   auto & ctl = controller.controller();
   auto X_0_camera = cameraOffset_ * ctl.robot().surfacePose("TopCameraRGB");

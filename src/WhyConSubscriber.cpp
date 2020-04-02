@@ -114,22 +114,17 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
 
   ctl_.gui()->addElement({"Plugins", "WhyCon"},
                          mc_rtc::gui::Label("Status",
-                         [this, simulation]()
-                         {
-                          if(simulation)
-                          {
-                           return "simulation";
-                          }
-                          else
-                          {
-                            return connected_ ? "connected": "disconnected";
-                          }
-                         }),
-                         mc_rtc::gui::Label("Topic",
-			 [this]()
-			 {
-			   return topic_;
-			 }));
+                                            [this, simulation]() {
+                                              if(simulation)
+                                              {
+                                                return "simulation";
+                                              }
+                                              else
+                                              {
+                                                return connected_ ? "connected" : "disconnected";
+                                              }
+                                            }),
+                         mc_rtc::gui::Label("Topic", [this]() { return topic_; }));
 }
 
 WhyConSubscriber::~WhyConSubscriber()
@@ -155,7 +150,7 @@ void WhyConSubscriber::tick(double dt)
   {
     if(connected_)
     {
-      LOG_WARNING("[WhyconPluginPlugin] All publishers disconnected from topic \""<< topic_ << "\"");
+      LOG_WARNING("[WhyconPluginPlugin] All publishers disconnected from topic \"" << topic_ << "\"");
       connected_ = false;
     }
   }

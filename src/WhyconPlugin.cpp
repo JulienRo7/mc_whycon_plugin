@@ -58,13 +58,14 @@ void WhyconPlugin::init(mc_control::MCGlobalController & controller, const mc_rt
     config("camera")("surface", cameraSurface_);
     if(!ctl.robot().hasSurface(cameraSurface_))
     {
-    	LOG_ERROR_AND_THROW(std::runtime_error, "[WhyconPlugin] No surface named " << cameraSurface_ << " for the camera");
+      LOG_ERROR_AND_THROW(std::runtime_error,
+                          "[WhyconPlugin] No surface named " << cameraSurface_ << " for the camera");
     }
     cameraOffset_ = config("camera")("offset", sva::PTransformd::Identity());
   }
 
   ctl.gui()->addElement(
-      {"Plugins", "WhyCon"}, 
+      {"Plugins", "WhyCon"},
       mc_rtc::gui::ArrayInput("Camera offset RPY [deg]", {"x", "y", "z"},
                               [this]() -> Eigen::Vector3d {
                                 return mc_rbdyn::rpyFromMat(cameraOffset_.rotation()) * 180 / mc_rtc::constants::PI;
@@ -76,21 +77,20 @@ void WhyconPlugin::init(mc_control::MCGlobalController & controller, const mc_rt
                               [this]() -> const Eigen::Vector3d & { return cameraOffset_.translation(); },
                               [this](const Eigen::Vector3d & offset) { cameraOffset_.translation() = offset; }));
 
-  spinner_ = std::thread([]()
-	{
-	  ros::Rate rt(30);
-	  while(ros::ok())
-          {
-            ros::spinOnce();
-            rt.sleep();
-          }
-	});
+  spinner_ = std::thread([]() {
+    ros::Rate rt(30);
+    while(ros::ok())
+    {
+      ros::spinOnce();
+      rt.sleep();
+    }
+  });
 
   initialized_ = true;
   LOG_SUCCESS("[Plugin::WhyconPlugin] initialized");
 }
 
-void WhyconPlugin::reset(mc_control::MCGlobalController & controller) { }
+void WhyconPlugin::reset(mc_control::MCGlobalController & controller) {}
 
 void WhyconPlugin::before(mc_control::MCGlobalController & controller)
 {

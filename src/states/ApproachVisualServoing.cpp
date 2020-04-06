@@ -1,5 +1,6 @@
 #include "ApproachVisualServoing.h"
 
+#include <mc_rbdyn/rpy_utils.h>
 #include <mc_tasks/MetaTaskLoader.h>
 #include <mc_whycon_plugin/WhyConSubscriber.h>
 #include <mc_whycon_plugin/WhyConUpdater.h>
@@ -50,7 +51,9 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
 
   /** Final desired offset between the target marker and the gripper marker */
   auto offset = X_robotSurface_robotMarker * X_targetMarker_target;
-  LOG_INFO("OFFSET: " << offset.translation().transpose());
+  LOG_INFO("OFFSET translation: " << offset.translation().transpose());
+  LOG_INFO("OFFSET: rotation  : " << mc_rbdyn::rpyFromMat(offset.rotation()).transpose() * 180.
+                                         / mc_rtc::constants::PI);
   /** Create the VS task, will add later */
   pbvsConf("stiffness", stiffness_);
   pbvsTask_ = std::make_shared<mc_tasks::PositionBasedVisServoTask>(

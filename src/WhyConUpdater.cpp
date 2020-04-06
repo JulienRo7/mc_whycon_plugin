@@ -1,3 +1,4 @@
+#include <mc_rbdyn/rpy_utils.h>
 #include <mc_tasks/PositionBasedVisServoTask.h>
 #include <mc_whycon_plugin/WhyConUpdater.h>
 
@@ -36,11 +37,18 @@ bool WhyConUpdater::update(mc_tasks::MetaTask & task_)
   auto X_t_s = X_camera_surface * X_camera_target.inv();
   if(once)
   {
-    std::cout << "X_camera_target " << X_camera_target.translation().transpose() << "\n"
-              << X_camera_target.rotation() << "\n";
-    std::cout << "X_camera_surface " << X_camera_surface.translation().transpose() << "\n"
-              << X_camera_surface.rotation() << "\n";
-    std::cout << "X_t_s " << X_t_s.translation().transpose() << "\n" << X_t_s.rotation() << "\n";
+    std::cout << "X_camera_target:\n"
+              << "\ttranslation: " << X_camera_target.translation().transpose() << "\n"
+              << "\trotation   : "
+              << mc_rbdyn::rpyFromMat(X_camera_target.rotation()).transpose() * 180 / mc_rtc::constants::PI << "\n";
+    std::cout << "X_camera_surface:\n"
+              << "\ttranslation: " << X_camera_surface.translation().transpose() << "\n"
+              << "\trotation   : "
+              << mc_rbdyn::rpyFromMat(X_camera_surface.rotation()).transpose() * 180 / mc_rtc::constants::PI << "\n";
+    std::cout << "X_t_s:\n"
+              << "\ttranslation: " << X_t_s.translation().transpose() << "\n"
+              << "\trotation   : " << mc_rbdyn::rpyFromMat(X_t_s.rotation()).transpose() * 180 / mc_rtc::constants::PI
+              << "\n";
     once = false;
   }
   task.error(X_t_s);

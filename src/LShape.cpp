@@ -1,4 +1,4 @@
-#include "LShape.h"
+#include <mc_whycon_plugin/LShape.h>
 
 namespace whycon_plugin
 {

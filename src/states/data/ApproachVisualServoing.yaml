@@ -1,0 +1,56 @@
+WhyconPlugin::ApproachVisualServoingExample:
+  base: WhyconPlugin::ApproachVisualServoing
+  # Note corresponding robot names are already defined 
+  # in the plugin's global configuration when describing the markers
+  robot:
+    marker: gripper
+    surface: LeftHand
+  target:
+    marker: facom_tool
+    surface: HandleTop
+
+  ##
+  # Approach phase: Bspline trajectory to the target
+  # - useMarker: true -> target pose is defined using the marker pose
+  # - useMarker: false -> target pose is defined wrt to the robot's surface (standard bspline_trajectory)
+  ##
+  approach:
+    useMarker: false
+    stiffness: 100
+    weight: 500
+    duration: 10
+    # Offset w.r.t the target surface
+    offset:
+      translation: [0,0,0]
+      rotation: [0,0,0]
+    # Waypoints wrt to the (offseted) target surface
+    # waypoints: []
+    # oriWaypoints: []
+    # displaySamples: 100
+    completion:
+      timeElapsed: true
+
+  visualServoing:
+    stiffness: 2.0
+    weight: 500
+    # Whether the user needs to confirm the use of visual servoing
+    # from the GUI
+    manualConfirmation: true
+    eval: 0.02
+    speed: 0.02
+    # Optional: list of active joints
+    # joints: []
+    # Offset w.r.t the target surface
+    offset:
+      translation: [0,0,0]
+      rotation: [0,0,0]
+
+
+  # optional add lookat task to keep the target in view
+  # the target will be halfway between the markers
+  lookAt:
+    body: "YourBody"
+    bodyVector: [1,0,0]
+    stiffness: 2
+    weight: 100
+    #joints: []

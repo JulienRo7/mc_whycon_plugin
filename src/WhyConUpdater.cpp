@@ -1,5 +1,5 @@
-#include "WhyConUpdater.h"
 #include <mc_tasks/PositionBasedVisServoTask.h>
+#include <mc_whycon_plugin/WhyConUpdater.h>
 
 namespace whycon_plugin
 {
@@ -51,7 +51,7 @@ bool WhyConUpdater::updateLookAt(mc_tasks::LookAtTask & task)
 {
   if(subscriber_.visible(env_))
   {
-    task.target(subscriber_.X_0_marker(env_).translation());
+    task.target(sva::interpolate(subscriber_.X_0_marker(surface_), subscriber_.X_0_marker(env_), 0.5).translation());
   }
 }
 

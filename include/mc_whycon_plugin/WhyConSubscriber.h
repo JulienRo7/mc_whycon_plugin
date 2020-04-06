@@ -43,6 +43,18 @@ struct WhyConSubscriber : public VisionSubscriber
   /** Returns the world position of a given marker */
   const sva::PTransformd & X_0_marker(const std::string & marker) const;
 
+  const LShape lshape(const std::string & name) const
+  {
+    if(lshapes_.count(name))
+    {
+      return lshapes_.at(name);
+    }
+    else
+    {
+      LOG_ERROR_AND_THROW(std::runtime_error, "[WhyconPlugin] No lshape named " << name);
+    }
+  }
+
 private:
   bool running_ = true;
   std::shared_ptr<ros::NodeHandle> nh_;

@@ -14,6 +14,14 @@ struct LShape
   sva::PTransformd pos = sva::PTransformd::Identity();
   /** Position of the l-shape in the world frame (estimated) */
   sva::PTransformd posW = sva::PTransformd::Identity();
+
+  /** Robot to which the shape is attached */
+  std::string robot;
+  /** Surface on the robot to which the shape is attached */
+  std::string surface;
+  /** Offset relative to the surface on the robot */
+  sva::PTransformd surfaceOffset;
+
   /** Tick every iteration to update the visibility */
   void tick(double dt);
   /** Called to update the position of the marker from the vision system */

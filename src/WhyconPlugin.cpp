@@ -1,7 +1,7 @@
-#include "WhyconPlugin.h"
 #include <mc_rbdyn/rpy_utils.h>
-#include "WhyConSubscriber.h"
-#include "WhyConUpdater.h"
+#include <mc_whycon_plugin/WhyConSubscriber.h>
+#include <mc_whycon_plugin/WhyConUpdater.h>
+#include <mc_whycon_plugin/WhyconPlugin.h>
 
 namespace whycon_plugin
 {
@@ -43,6 +43,8 @@ void WhyconPlugin::init(mc_control::MCGlobalController & controller, const mc_rt
   ctl.datastore().make_call(
       "WhyconPlugin::updateLookAtTask",
       [this](const std::string & name, mc_tasks::LookAtTask & task) { taskUpdaters_.at(name)->updateLookAt(task); });
+
+  ctl.datastore().make_call("WhyconPlugin::getWhyconSubscriber", [this]() { return whyconSubscriber_; });
 
   if(!config.has("camera"))
   {

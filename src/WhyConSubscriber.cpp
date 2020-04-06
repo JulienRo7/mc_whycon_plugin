@@ -1,4 +1,4 @@
-#include "WhyConSubscriber.h"
+#include <mc_whycon_plugin/WhyConSubscriber.h>
 
 // ROS stuff
 #include <mc_rbdyn/rpy_utils.h>
@@ -18,50 +18,33 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
   }
   bool simulation = config("simulation");
   auto methodConf = config("whycon");
+
+  auto markers = methodConf("markers");
+  std::unordered_map<std::string, std::function<void(const mc_control::MCController &, LShape &)>> markerUpdates_;
+  for(auto k : markers.keys())
+  {
+    std::string robotName = markers(k)("robot", ctl.robot().name());
+    std::string relative = markers(k)("relative", std::string(""));
+    sva::PTransformd pos = markers(k)("pos", sva::PTransformd::Identity());
+    lshapes_[k].robot = robotName;
+    lshapes_[k].surface = relative;
+    lshapes_[k].surfaceOffset = pos;
+  }
+
   if(simulation)
   {
-    auto markers = methodConf("markers");
-    std::unordered_map<std::string, std::function<void(const mc_control::MCController &, LShape &)>> markerUpdates_;
     for(auto k : markers.keys())
     {
-      std::string robotName = markers(k)("robot", ctl.robot().name());
-      std::string relative = markers(k)("relative", std::string(""));
-      std::string relative_body = markers(k)("relative_body", std::string(""));
-      sva::PTransformd pos = markers(k)("pos", sva::PTransformd::Identity());
-      if(relative.size())
-      {
-        markerUpdates_[k] = [this, robotName, pos, relative](const mc_control::MCController & ctl, LShape & shape) {
-          auto & robot = ctl.robots().robot(robotName);
-          auto X_camera_0 = X_0_camera.inv();
-          auto X_relative_marker = pos;
-          auto X_0_marker = X_relative_marker * robot.surfacePose(relative);
-          shape.update(X_0_marker * X_camera_0, X_0_camera);
-        };
-      }
-      else if(relative_body.size())
-      {
-        markerUpdates_[k] = [this, robotName, pos, relative_body](const mc_control::MCController & ctl,
-                                                                  LShape & shape) {
-          auto & robot = ctl.robots().robot(robotName);
-          auto X_camera_0 = X_0_camera.inv();
-          auto X_relative_marker = pos;
-          auto X_0_body = robot.bodyPosW(relative_body);
-          Eigen::Vector3d rpy = mc_rbdyn::rpyFromMat(X_0_body.rotation());
-          X_0_body.rotation() = mc_rbdyn::rpyToMat(0, 0, rpy.z());
-          auto X_0_marker = X_relative_marker * X_0_body;
-          shape.update(X_0_marker * X_camera_0, X_0_camera);
-        };
-      }
-      else
-      {
-        markerUpdates_[k] = [this, pos](const mc_control::MCController & ctl, LShape & shape) {
-          auto X_camera_0 = X_0_camera.inv();
-          auto X_0_marker = pos;
-          shape.update(X_0_marker * X_camera_0, X_0_camera);
-        };
-      }
+      markerUpdates_[k] = [this](const mc_control::MCController & ctl, LShape & shape) {
+        auto & robot = ctl.robots().robot(shape.robot);
+        auto X_camera_0 = X_0_camera.inv();
+        auto X_relative_marker = shape.surfaceOffset;
+        auto X_0_marker = X_relative_marker * robot.surfacePose(shape.surface);
+        shape.update(X_0_marker * X_camera_0, X_0_camera);
+      };
       newMarker(k);
     }
+    // Simulate marker update
     updateThread_ = std::thread([this, markerUpdates_]() {
       ros::Rate rt(30);
       while(ros::ok() && running_)
@@ -82,21 +65,26 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
                                                                                       msg) {
       for(const auto & s : msg.shapes)
       {
-        Eigen::Vector3d pos{s.pose.position.x, s.pose.position.y, s.pose.position.z};
-        Eigen::Quaterniond q{s.pose.orientation.w, s.pose.orientation.x, s.pose.orientation.y, s.pose.orientation.z};
         const auto & name = s.name;
         std::lock_guard<std::mutex> lock(updateMutex_);
-        if(!lshapes_.count(name))
-        {
+        if(lshapes_.count(name))
+        { // supported marker
+          Eigen::Vector3d pos{s.pose.position.x, s.pose.position.y, s.pose.position.z};
+          Eigen::Quaterniond q{s.pose.orientation.w, s.pose.orientation.x, s.pose.orientation.y, s.pose.orientation.z};
           lshapes_[name].update({q, pos}, X_0_camera);
-          newMarker(name);
-          // Add marker to the datastore
-          ctl_.datastore().make<std::pair<sva::PTransformd, double>>(
-              "WhyconPlugin::Marker::" + name, lshapes_.at(name).posW, lshapes_.at(name).lastUpdate());
-        }
-        else
-        {
-          lshapes_[name].update({q, pos}, X_0_camera);
+          if(!ctl_.datastore().has("WhyconPlugin::Marker::" + name))
+          {
+            newMarker(name);
+            // Add marker to the datastore
+            ctl_.datastore().make<std::pair<sva::PTransformd, double>>(
+                "WhyconPlugin::Marker::" + name, lshapes_.at(name).posW, lshapes_.at(name).lastUpdate());
+          }
+          else
+          {
+            ctl_.datastore().assign(
+                "WhyconPlugin::Marker::" + name,
+                std::pair<sva::PTransformd, double>(lshapes_.at(name).posW, lshapes_.at(name).lastUpdate()));
+          }
         }
       }
     };
@@ -159,9 +147,6 @@ void WhyConSubscriber::tick(double dt)
   {
     const auto & name = lshape.first;
     lshape.second.tick(dt);
-    ctl_.datastore().assign(
-        "WhyconPlugin::Marker::" + name,
-        std::pair<sva::PTransformd, double>(lshapes_.at(name).posW, lshapes_.at(name).lastUpdate()));
   }
 }
 

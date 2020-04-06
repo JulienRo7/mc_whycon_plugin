@@ -6,38 +6,28 @@ camera:
     rotation: [0, 0, -1.57]
 
 # whether we are running in simulation
-simulation: false
+simulation: true
 
 # Options related to each method
 whycon:
   topic: "/whycon_lshape/whycon_lshape" # Only used if simulation is false
-  markers: # Only used if simulation is true
-    wall_0:
-      robot: bolting_structure
+  # Configure where the markers are attached on a robot
+  # Only the markers in this list will be considered
+  markers:
+    bolt_panel:
+      robot: bolt_panel
       relative: LShapeCenter
-      # pos:
-      #   translation: [0, 0.05, 0]
-      #    rotation: [1.57, -1.57, 0]
 
     beam_left:
       robot: bolting_structure
       relative: BeamLeft
 
     # Gripper position, relative to the robot hand
-    gripper":
-      relative: RightHand
-
-  # Offsets from the bracket table to the brackets, in the bracket table frame
-  brackets:
-    0:
-      offsetApproach:
-        translation: [0, 0.05, 0]
-      offsetVS:
-        translation: [0, 0.05, 0.2]
-        rotation: [-1.57, 0, -1.57]
-    1:
-      offsetApproach:
-        translation: [0, -0.05, 0]
-      offsetVS:
-        translation: [0, -0.05, 0.2]
-        rotation: [-1.57, 0, -1.57]
+    left_gripper:
+      relative: LeftHand
+      # pos:
+      #   translation: [0, 0.05, 0]
+      #    rotation: [1.57, -1.57, 0]
+    facom_tool:
+      robot: facom_tool
+      relative: LShapeCenter

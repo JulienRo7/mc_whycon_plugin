@@ -42,6 +42,18 @@ sva::PTransformd ApproachVisualServoing::targetMarkerToSurfaceOffset(const mc_co
   return X_targetMarker_target;
 }
 
+void ApproachVisualServoing::updateLookAt(const mc_control::fsm::Controller & ctl)
+{
+  const auto & observer = static_cast<const WhyConSubscriber &>(*subscriber_);
+  const auto & robotMarker = observer.lshape(robotMarkerName_);
+  const auto & targetMarker = observer.lshape(targetMarkerName_);
+  auto & robot = ctl.robots().robot(robotMarker.robot);
+  auto & targetRobot = ctl.robots().robot(targetMarker.robot);
+  lookAt_->target(sva::interpolate(targetMarker.surfaceOffset * targetRobot.surfacePose(targetMarker.surface),
+                                   robotMarker.surfaceOffset * robot.surfacePose(robotMarker.surface), 0.5)
+                      .translation());
+}
+
 void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
 {
   /* Get the selected bracket position from the vision system */
@@ -192,6 +204,8 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
     {
       posDone_ = true;
       iter_ = 0;
+      // Look halfway between the expected markers
+      updateLookAt(ctl);
       auto enableVisualServoing = [this, &ctl]() {
         userEnableVS_ = true;
         ctl.solver().removeTask(task_);
@@ -208,11 +222,15 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
                                                     userEnableVS_ = false;
                                                     pbvsTask_->error(sva::PTransformd::Identity());
                                                   }),
-                              mc_rtc::gui::Button("Resume", [this, &ctl]() {
-                                userEnableVS_ = true;
-                                vsResume_ = true;
-                                updatePBVSTask(ctl);
-                              }));
+                              mc_rtc::gui::Button("Resume",
+                                                  [this, &ctl]() {
+                                                    userEnableVS_ = true;
+                                                    vsResume_ = true;
+                                                    updatePBVSTask(ctl);
+                                                  }),
+                              mc_rtc::gui::Label("Stiffness", [this]() { return stiffness_; }),
+                              mc_rtc::gui::NumberInput("Max stiffness", [this]() { return maxStiffness_; },
+                                                       [this](double s) { maxStiffness_ = std::max(0., s); }));
       }
       else
       {

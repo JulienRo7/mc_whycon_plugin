@@ -37,6 +37,10 @@ private:
 
   void updatePBVSTask(const mc_control::fsm::Controller & ctl);
 
+  /** Look halfway between the expected marker pose and the marker pose on the
+   * robot */
+  void updateLookAt(const mc_control::fsm::Controller & ctl);
+
 private:
   /** Configuration of the state, can be used to retrieve method specific configuration */
   mc_rtc::Configuration config_;

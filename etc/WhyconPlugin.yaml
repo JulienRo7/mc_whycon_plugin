@@ -6,7 +6,7 @@ camera:
     rotation: [0, 0, -1.57]
 
 # whether we are running in simulation
-simulation: false
+simulation: true
 
 # Options related to each method
 whycon:
@@ -29,6 +29,7 @@ whycon:
       pos:
         translation: [0, 0, 0]
         rotation: [0, 0, 0]
+
     facom_tool:
       robot: facom_tool
       relative: LShapeCenter

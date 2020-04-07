@@ -8,8 +8,9 @@ namespace whycon_plugin
 WhyConUpdater::WhyConUpdater(const WhyConSubscriber & subscriber,
                              const std::string & surface,
                              const std::string & env,
-                             const sva::PTransformd & offset)
-: subscriber_(subscriber), surface_(surface), env_(env), offset_(offset)
+                             const sva::PTransformd & envOffset,
+                             const sva::PTransformd & surfaceOffset)
+: subscriber_(subscriber), surface_(surface), env_(env), envOffset_(envOffset), surfaceOffset_(surfaceOffset)
 {
 }
 
@@ -32,8 +33,8 @@ bool WhyConUpdater::update(mc_tasks::MetaTask & task_)
     return false;
   }
   static bool once = true;
-  auto X_camera_target = offset_ * subscriber_.X_camera_marker(env_);
-  auto X_camera_surface = subscriber_.X_camera_marker(surface_);
+  auto X_camera_target = envOffset_ * subscriber_.X_camera_marker(env_);
+  auto X_camera_surface = surfaceOffset_ * subscriber_.X_camera_marker(surface_);
   auto X_t_s = X_camera_surface * X_camera_target.inv();
   if(once)
   {
@@ -45,6 +46,14 @@ bool WhyConUpdater::update(mc_tasks::MetaTask & task_)
               << "\ttranslation: " << X_camera_surface.translation().transpose() << "\n"
               << "\trotation   : "
               << mc_rbdyn::rpyFromMat(X_camera_surface.rotation()).transpose() * 180 / mc_rtc::constants::PI << "\n";
+    std::cout << "surfaceOffset:\n"
+              << "\ttranslation: " << surfaceOffset_.translation().transpose() << "\n"
+              << "\trotation   : "
+              << mc_rbdyn::rpyFromMat(surfaceOffset_.rotation()).transpose() * 180 / mc_rtc::constants::PI << "\n";
+    std::cout << "envOffset:\n"
+              << "\ttranslation: " << envOffset_.translation().transpose() << "\n"
+              << "\trotation   : "
+              << mc_rbdyn::rpyFromMat(envOffset_.rotation()).transpose() * 180 / mc_rtc::constants::PI << "\n";
     std::cout << "X_t_s:\n"
               << "\ttranslation: " << X_t_s.translation().transpose() << "\n"
               << "\trotation   : " << mc_rbdyn::rpyFromMat(X_t_s.rotation()).transpose() * 180 / mc_rtc::constants::PI

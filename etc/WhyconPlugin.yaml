@@ -25,9 +25,15 @@ whycon:
     # Gripper position, relative to the robot hand
     left_gripper:
       relative: LeftHand
-      # pos:
-      #   translation: [0, 0.05, 0]
-      #    rotation: [1.57, -1.57, 0]
+      #relative: LeftHandSideInner
+      pos:
+        translation: [0, 0, 0]
+        #rotation: [0,0,0]
+        rotation: [0, 0, -1.57]
     facom_tool:
       robot: facom_tool
       relative: LShapeCenter
+      pos:
+        translation: [0, 0, 0]
+        rotation: [0, 0, 0]
+        

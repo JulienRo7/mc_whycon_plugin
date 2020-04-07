@@ -50,7 +50,8 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
   auto X_robotSurface_robotMarker = X_0_robotMarker * X_0_robotSurface.inv();
 
   /** Final desired offset between the target marker and the gripper marker */
-  auto offset = X_robotSurface_robotMarker * X_targetMarker_target;
+  auto targetOffset = X_targetMarker_target;
+  auto surfaceOffset = X_robotSurface_robotMarker.inv();
   LOG_INFO("OFFSET translation: " << offset.translation().transpose());
   LOG_INFO("OFFSET: rotation  : " << mc_rbdyn::rpyFromMat(offset.rotation()).transpose() * 180.
                                          / mc_rtc::constants::PI);
@@ -71,7 +72,7 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
     LOG_ERROR("[" << name() << "] " << target_marker << " is not visible")
     return;
   }
-  updater_.reset(new WhyConUpdater(observer, robot_marker, target_marker, offset));
+  updater_.reset(new WhyConUpdater(observer, robot_marker, target_marker, targetOffset, surfaceOffset));
 
   /* approach */
   bool useMarker = approachConf("useMarker", false);

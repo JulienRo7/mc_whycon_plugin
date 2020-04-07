@@ -171,10 +171,10 @@ void ApproachVisualServoing::updatePBVSTask(const mc_control::fsm::Controller & 
 
 bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
 {
-  if(lookAt_)
-  {
-    updater_->updateLookAt(*lookAt_);
-  }
+  // if(lookAt_)
+  // {
+  //   updater_->updateLookAt(*lookAt_);
+  // }
 
   if(!task_)
   {
@@ -226,7 +226,7 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
       // If we still haven't converged, double stiffness every 100 iterations
       if(pbvsTask_->speed().tail(3).norm() < speedTh_ && iter_++ > 100)
       {
-        double stiffness = std::max(2 * stiffness_, maxStiffness_);
+        double stiffness = std::min(2 * stiffness_, maxStiffness_);
         if(pbvsTask_->stiffness() < stiffness)
         {
           pbvsTask_->stiffness(stiffness);

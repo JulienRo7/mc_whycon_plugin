@@ -85,6 +85,8 @@ private:
   bool userEnableVS_ = false;
   /** True if the initial positioning is done */
   bool posDone_ = false;
+  /** True if visual servoing was previously paused */
+  bool vsResume_ = false;
   /** True if visual servoing is done */
   bool vsDone_ = false;
   std::vector<std::string> category_;

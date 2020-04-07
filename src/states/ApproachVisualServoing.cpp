@@ -154,6 +154,8 @@ void ApproachVisualServoing::teardown(mc_control::fsm::Controller & ctl)
     ctl.solver().removeTask(task_);
     ctl.solver().removeTask(pbvsTask_);
     ctl.gui()->removeElement(category_, "Enable visual servoing");
+    ctl.gui()->removeElement(category_, "Pause");
+    ctl.gui()->removeElement(category_, "Resume");
   }
   if(lookAt_)
   {
@@ -200,6 +202,17 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
       if(manualConfirmation_)
       {
         ctl.gui()->addElement(category_, mc_rtc::gui::Button("Enable visual servoing", enableVisualServoing));
+        ctl.gui()->addElement(category_,
+                              mc_rtc::gui::Button("Pause",
+                                                  [this, &ctl]() {
+                                                    userEnableVS_ = false;
+                                                    pbvsTask_->error(sva::PTransformd::Identity());
+                                                  }),
+                              mc_rtc::gui::Button("Resume", [this, &ctl]() {
+                                userEnableVS_ = true;
+                                vsResume_ = true;
+                                updatePBVSTask(ctl);
+                              }));
       }
       else
       {
@@ -207,8 +220,8 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
       }
     }
   }
-  else if(!userEnableVS_)
-  {
+  else if(!userEnableVS_ || vsResume_)
+  { // visual servoing disabled, do nothing
   }
   else if(!vsDone_)
   {

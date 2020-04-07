@@ -32,6 +32,7 @@ WhyconPlugin::ApproachVisualServoingExample:
 
   visualServoing:
     stiffness: 2.0
+    maxStiffness: 10
     weight: 500
     # Whether the user needs to confirm the use of visual servoing
     # from the GUI

@@ -68,9 +68,10 @@ private:
   std::unique_ptr<whycon_plugin::TaskUpdater> updater_;
   /* stiffness of the visual servoing task
    * Note that in case of non-convergence this stiffness will gradually increase
-   * until convergence
+   * until convergence up to maxStiffness_
    **/
   double stiffness_ = 2;
+  double maxStiffness_ = 2;
   /** Whether visual servoing needs to be manually triggered */
   bool manualConfirmation_ = true;
   /** Evaluation threshold for the task */

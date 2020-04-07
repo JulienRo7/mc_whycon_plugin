@@ -66,6 +66,7 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
 
   /** Create the VS task, will add later */
   pbvsConf("stiffness", stiffness_);
+  pbvsConf("maxStiffness", maxStiffness_);
   pbvsTask_ = std::make_shared<mc_tasks::PositionBasedVisServoTask>(
       robotSurface_, sva::PTransformd::Identity() /* No initial error, will be set by the updater later */,
       ctl.robots(), robot.robotIndex(), stiffness_, pbvsConf("weight", 500.));
@@ -225,7 +226,7 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
       // If we still haven't converged, double stiffness every 100 iterations
       if(pbvsTask_->speed().tail(3).norm() < speedTh_ && iter_++ > 100)
       {
-        double stiffness = 2 * stiffness_;
+        double stiffness = std::max(2 * stiffness_, maxStiffness_);
         if(pbvsTask_->stiffness() < stiffness)
         {
           pbvsTask_->stiffness(stiffness);

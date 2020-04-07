@@ -30,6 +30,7 @@ bool WhyConUpdater::update(mc_tasks::MetaTask & task_)
   }
   if(!visible)
   {
+    task.error(sva::PTransformd::Identity());
     return false;
   }
   static bool once = true;

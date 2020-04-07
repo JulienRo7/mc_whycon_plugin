@@ -240,9 +240,11 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
   }
   else if(!userEnableVS_ || vsResume_)
   { // visual servoing disabled, do nothing
+    vsResume_ = false;
   }
   else if(!vsDone_)
   {
+    updateLookAt(ctl);
     if(pbvsTask_->eval().tail(3).norm() < evalTh_ && pbvsTask_->speed().tail(3).norm() < speedTh_ && iter_++ > 10)
     {
       vsDone_ = true;

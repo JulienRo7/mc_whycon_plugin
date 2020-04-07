@@ -63,7 +63,7 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
   category_ = config_("category_", std::vector<std::string>{name()});
 
   const auto & pbvsConf = config_("visualServoing");
-  pbvsConf("offset", sva::PTransformd::Identity());
+  pbvsConf("offset", targetOffset_);
 
   const auto & approachConf = config_("approach");
   robotMarkerName_ = static_cast<std::string>(config_("robot")("marker"));
@@ -168,6 +168,10 @@ void ApproachVisualServoing::teardown(mc_control::fsm::Controller & ctl)
     ctl.gui()->removeElement(category_, "Enable visual servoing");
     ctl.gui()->removeElement(category_, "Pause");
     ctl.gui()->removeElement(category_, "Resume");
+    ctl.gui()->removeElement(category_, "Stiffness");
+    ctl.gui()->removeElement(category_, "Max stiffness");
+    ctl.gui()->removeElement(category_, "Offset wrt target surface (translation) [m]");
+    ctl.gui()->removeElement(category_, "Offset wrt target surface (rotation) [deg]");
   }
   if(lookAt_)
   {
@@ -216,29 +220,63 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
       if(manualConfirmation_)
       {
         ctl.gui()->addElement(category_, mc_rtc::gui::Button("Enable visual servoing", enableVisualServoing));
-        ctl.gui()->addElement(category_,
-                              mc_rtc::gui::Button("Pause",
-                                                  [this, &ctl]() {
-                                                    userEnableVS_ = false;
-                                                    pbvsTask_->error(sva::PTransformd::Identity());
-                                                  }),
-                              mc_rtc::gui::Button("Resume",
-                                                  [this, &ctl]() {
-                                                    userEnableVS_ = true;
-                                                    vsResume_ = true;
-                                                    updatePBVSTask(ctl);
-                                                  }),
-                              mc_rtc::gui::Label("Stiffness", [this]() { return stiffness_; }),
-                              mc_rtc::gui::NumberInput("Max stiffness", [this]() { return maxStiffness_; },
-                                                       [this](double s) { maxStiffness_ = std::max(0., s); }));
       }
       else
       {
         enableVisualServoing();
       }
+      ctl.gui()->addElement(
+          category_,
+          mc_rtc::gui::Label("Status",
+                             [this]() {
+                               if(vsPaused_)
+                               {
+                                 return "paused";
+                               }
+                               else if(!userEnableVS_)
+                               {
+                                 return "not enabled";
+                               }
+                               else if(userEnableVS_ && !vsDone_)
+                               {
+                                 return "active";
+                               }
+                               else if(userEnableVS_ && vsDone_)
+                               {
+                                 return "converged";
+                               }
+                               return "unknown";
+                             }),
+          mc_rtc::gui::Button("Pause",
+                              [this, &ctl]() {
+                                userEnableVS_ = false;
+                                vsPaused_ = true;
+                                pbvsTask_->error(sva::PTransformd::Identity());
+                              }),
+          mc_rtc::gui::Button("Resume",
+                              [this, &ctl]() {
+                                userEnableVS_ = true;
+                                vsResume_ = true;
+                                vsPaused_ = false;
+                                updatePBVSTask(ctl);
+                              }),
+          mc_rtc::gui::Label("Stiffness", [this]() { return stiffness_; }),
+          mc_rtc::gui::NumberInput("Max stiffness", [this]() { return maxStiffness_; },
+                                   [this](double s) { maxStiffness_ = std::max(0., s); }),
+          mc_rtc::gui::ArrayInput("Offset wrt target surface (translation) [m]", {"x", "y", "z"},
+                                  [this]() -> const Eigen::Vector3d & { return targetOffset_.translation(); },
+                                  [this](const Eigen::Vector3d & t) { targetOffset_.translation() = t; }),
+          mc_rtc::gui::ArrayInput("Offset wrt target surface (rotation) [deg]", {"r", "p", "y"},
+                                  [this]() -> Eigen::Vector3d {
+                                    return mc_rbdyn::rpyFromMat(targetOffset_.rotation()) * 180.
+                                           / mc_rtc::constants::PI;
+                                  },
+                                  [this](const Eigen::Vector3d & rpy) {
+                                    targetOffset_.rotation() = mc_rbdyn::rpyToMat(rpy * mc_rtc::constants::PI / 180.);
+                                  }));
     }
   }
-  else if(!userEnableVS_ || vsResume_)
+  else if(!userEnableVS_ || vsPaused_ || vsResume_)
   { // visual servoing disabled, do nothing
     vsResume_ = false;
   }

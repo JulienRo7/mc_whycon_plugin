@@ -91,6 +91,8 @@ private:
   bool posDone_ = false;
   /** True if visual servoing was previously paused */
   bool vsResume_ = false;
+  /** True if the task is paused */
+  bool vsPaused_ = false;
   /** True if visual servoing is done */
   bool vsDone_ = false;
   std::vector<std::string> category_;

@@ -30,6 +30,27 @@ struct WhyConUpdater : public TaskUpdater
   /** Update look at task to look at the environment marker */
   bool updateLookAt(mc_tasks::LookAtTask & task) override;
 
+
+  inline void envOffset(const sva::PTransformd & envOffset)
+  {
+    envOffset_ = envOffset;
+  }
+
+  inline const sva::PTransformd & envOffset() const
+  {
+    return envOffset_;
+  }
+
+  inline void surfaceOffset(const sva::PTransformd & surfaceOffset)
+  {
+    surfaceOffset_ = surfaceOffset;
+  }
+
+  inline const sva::PTransformd & surfaceOffset() const
+  {
+    return surfaceOffset_;
+  }
+
 private:
   const WhyConSubscriber & subscriber_;
   std::string surface_;

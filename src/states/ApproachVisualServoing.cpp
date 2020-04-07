@@ -15,50 +15,60 @@ void ApproachVisualServoing::configure(const mc_rtc::Configuration & config)
   config_.load(config);
 }
 
-void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
+sva::PTransformd ApproachVisualServoing::robotMarkerToSurfaceOffset(const mc_control::fsm::Controller & ctl) const
 {
-  category_ = config_("category_", std::vector<std::string>{name()});
-  ctl.grippers["l_gripper"]->setTargetOpening(1);
-
-  const auto & pbvsConf = config_("visualServoing");
-  const auto & approachConf = config_("approach");
-  std::string robot_marker = config_("robot")("marker");
-  std::string robotSurface = config_("robot")("surface");
-  std::string target_marker = config_("target")("marker");
-  std::string targetSurface = config_("target")("surface");
-
-  /* Get the selected bracket position from the vision system */
-  auto subscriber = ctl.datastore().call<std::shared_ptr<WhyConSubscriber>>("WhyconPlugin::getWhyconSubscriber");
-  const auto & observer = static_cast<const WhyConSubscriber &>(*subscriber);
-
-  const auto & targetMarker = observer.lshape(target_marker);
-  const auto & robotMarker = observer.lshape(robot_marker);
-  auto & targetRobot = ctl.robots().robot(targetMarker.robot);
+  const auto & observer = static_cast<const WhyConSubscriber &>(*subscriber_);
+  const auto & robotMarker = observer.lshape(robotMarkerName_);
   auto & robot = ctl.robots().robot(robotMarker.robot);
+  auto X_0_robotSurface = robot.surfacePose(robotSurface_);
+  auto X_0_robotMarker = robotMarker.surfaceOffset * robot.surfacePose(robotMarker.surface);
+  return X_0_robotSurface * X_0_robotMarker.inv();
+}
+
+sva::PTransformd ApproachVisualServoing::targetMarkerToSurfaceOffset(const mc_control::fsm::Controller & ctl) const
+{
+  const auto & observer = static_cast<const WhyConSubscriber &>(*subscriber_);
+  const auto & targetMarker = observer.lshape(targetMarkerName_);
+  auto & targetRobot = ctl.robots().robot(targetMarker.robot);
 
   // Visual servoing target:
   // First compute the relative transform between the target marker and gripper
   // marker so that the robot surface is at the target surface (+offset) at the
   // end of the PBVS task convergence
   auto X_0_targetMarker = targetMarker.surfaceOffset * targetRobot.surfacePose(targetMarker.surface);
-  auto X_targetMarker_targetSurface = targetRobot.surfacePose(targetSurface) * X_0_targetMarker.inv();
-  auto X_targetSurface_target = pbvsConf("offset", sva::PTransformd::Identity());
-  auto X_targetMarker_target = X_targetSurface_target * X_targetMarker_targetSurface;
+  auto X_targetMarker_targetSurface_ = targetRobot.surfacePose(targetSurface_) * X_0_targetMarker.inv();
+  auto X_targetSurface_target = targetOffset_;
+  auto X_targetMarker_target = X_targetSurface_target * X_targetMarker_targetSurface_;
+  return X_targetMarker_target;
+}
 
-  auto X_0_robotSurface = robot.surfacePose(robotSurface);
-  auto X_0_robotMarker = robotMarker.surfaceOffset * robot.surfacePose(robotMarker.surface);
-  auto X_robotSurface_robotMarker = X_0_robotMarker * X_0_robotSurface.inv();
+void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
+{
+  /* Get the selected bracket position from the vision system */
+  subscriber_ = ctl.datastore().call<std::shared_ptr<WhyConSubscriber>>("WhyconPlugin::getWhyconSubscriber");
+  const auto & observer = static_cast<const WhyConSubscriber &>(*subscriber_);
 
-  /** Final desired offset between the target marker and the gripper marker */
-  auto targetOffset = X_targetMarker_target;
-  auto surfaceOffset = X_robotSurface_robotMarker.inv();
-  LOG_INFO("OFFSET translation: " << offset.translation().transpose());
-  LOG_INFO("OFFSET: rotation  : " << mc_rbdyn::rpyFromMat(offset.rotation()).transpose() * 180.
-                                         / mc_rtc::constants::PI);
+  category_ = config_("category_", std::vector<std::string>{name()});
+
+  const auto & pbvsConf = config_("visualServoing");
+  pbvsConf("offset", sva::PTransformd::Identity());
+
+  const auto & approachConf = config_("approach");
+  robotMarkerName_ = static_cast<std::string>(config_("robot")("marker"));
+  robotSurface_ = static_cast<std::string>(config_("robot")("surface"));
+  targetMarkerName_ = static_cast<std::string>(config_("target")("marker"));
+  targetSurface_ = static_cast<std::string>(config_("target")("surface"));
+
+  const auto & targetMarker = observer.lshape(targetMarkerName_);
+  const auto & robotMarker = observer.lshape(robotMarkerName_);
+  auto & targetRobot = ctl.robots().robot(targetMarker.robot);
+  auto & robot = ctl.robots().robot(robotMarker.robot);
+
   /** Create the VS task, will add later */
   pbvsConf("stiffness", stiffness_);
   pbvsTask_ = std::make_shared<mc_tasks::PositionBasedVisServoTask>(
-      robotSurface, offset, ctl.robots(), robot.robotIndex(), stiffness_, pbvsConf("weight", 500.));
+      robotSurface_, sva::PTransformd::Identity() /* No initial error, will be set by the updater later */,
+      ctl.robots(), robot.robotIndex(), stiffness_, pbvsConf("weight", 500.));
   if(pbvsConf.has("joints"))
   {
     pbvsTask_->selectActiveJoints(pbvsConf("joints"));
@@ -67,28 +77,25 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
   pbvsConf("eval", evalTh_);
   pbvsConf("speed", speedTh_);
 
-  if(!observer.visible(target_marker))
-  {
-    LOG_ERROR("[" << name() << "] " << target_marker << " is not visible")
-    return;
-  }
-  updater_.reset(new WhyConUpdater(observer, robot_marker, target_marker, targetOffset, surfaceOffset));
+  auto targetOffset = targetMarkerToSurfaceOffset(ctl);
+  auto robotOffset = robotMarkerToSurfaceOffset(ctl);
+  updater_.reset(new WhyConUpdater(observer, robotMarkerName_, targetMarkerName_, targetOffset, robotOffset));
 
   /* approach */
   bool useMarker = approachConf("useMarker", false);
   auto approachOffset = approachConf("offset", sva::PTransformd::Identity());
   auto X_0_markerSurface = targetRobot.surfacePose(targetMarker.surface);
-  auto X_0_targetSurface = targetRobot.surfacePose(targetSurface);
-  auto X_markerSurface_targetSurface = X_0_targetSurface * X_0_markerSurface.inv();
+  auto X_0_targetSurface_ = targetRobot.surfacePose(targetSurface_);
+  auto X_markerSurface_targetSurface_ = X_0_targetSurface_ * X_0_markerSurface.inv();
   mc_tasks::BSplineTrajectoryTask::waypoints_t waypoints;
   std::vector<std::pair<double, Eigen::Matrix3d>> oriWp;
   if(useMarker)
   { /* Target relative to the target marker */
-    X_0_bracket_ = approachOffset * X_markerSurface_targetSurface * observer.X_0_marker(target_marker);
+    X_0_bracket_ = approachOffset * X_markerSurface_targetSurface_ * observer.X_0_marker(targetMarkerName_);
   }
   else
   { /* Target relative to the target robot's surface */
-    X_0_bracket_ = approachOffset * X_markerSurface_targetSurface * X_0_markerSurface;
+    X_0_bracket_ = approachOffset * X_markerSurface_targetSurface_ * X_0_markerSurface;
   }
   if(approachConf.has("waypoints"))
   { // Control points offsets defined wrt to the target surface frame
@@ -112,7 +119,7 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
     }
   }
   task_ = std::make_shared<mc_tasks::BSplineTrajectoryTask>(
-      ctl.solver().robots(), ctl.solver().robots().robot(robotMarker.robot).robotIndex(), robotSurface,
+      ctl.solver().robots(), ctl.solver().robots().robot(robotMarker.robot).robotIndex(), robotSurface_,
       approachConf("duration"), approachConf("stiffness"), approachConf("weight"), X_0_bracket_, waypoints, oriWp);
   const auto displaySamples = approachConf("displaySamples", task_->displaySamples());
   task_->displaySamples(displaySamples);
@@ -134,7 +141,7 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
       lookAt_->selectActiveJoints(lookConf("joints"));
     }
     // Target the expected pose
-    lookAt_->target(X_0_targetSurface.translation());
+    lookAt_->target(X_0_targetSurface_.translation());
     ctl.solver().addTask(lookAt_);
   }
 }
@@ -151,6 +158,14 @@ void ApproachVisualServoing::teardown(mc_control::fsm::Controller & ctl)
   {
     ctl.solver().removeTask(lookAt_);
   }
+}
+
+void ApproachVisualServoing::updatePBVSTask(const mc_control::fsm::Controller & ctl)
+{
+  auto & updater = static_cast<WhyConUpdater &>(*updater_);
+  updater.envOffset(targetMarkerToSurfaceOffset(ctl));
+  updater.surfaceOffset(robotMarkerToSurfaceOffset(ctl));
+  updater.update(*pbvsTask_);
 }
 
 bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
@@ -178,7 +193,7 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
         userEnableVS_ = true;
         ctl.solver().removeTask(task_);
         ctl.solver().addTask(pbvsTask_);
-        updater_->update(*pbvsTask_);
+        updatePBVSTask(ctl);
         ctl.gui()->removeElement(category_, "Enable visual servoing");
       };
       if(manualConfirmation_)
@@ -206,7 +221,7 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
     }
     else
     {
-      updater_->update(*pbvsTask_);
+      updatePBVSTask(ctl);
       // If we still haven't converged, double stiffness every 100 iterations
       if(pbvsTask_->speed().tail(3).norm() < speedTh_ && iter_++ > 100)
       {

@@ -79,7 +79,10 @@ private:
    **/
   double stiffness_ = 2;
   double maxStiffness_ = 2;
+  /** actual max speed */
   double maxSpeed_ = 0.01;
+  /* desired max speed */
+  double maxSpeedDesired_ = 0.01;
   /** Whether visual servoing needs to be manually triggered */
   bool manualConfirmation_ = true;
   /** Evaluation threshold for the task */
@@ -95,12 +98,11 @@ private:
   bool posDone_ = false;
   /** True if visual servoing was previously paused */
   bool vsResume_ = false;
-  /** True when the marker was not visible at the previous update of PBVS */
-  bool wasNotVisible_ = false;
+  /** True when the marker was visible at the previous update of PBVS */
+  bool wasVisible_ = true;
+  bool visible_ = false;
   /** True if the task is paused */
   bool vsPaused_ = false;
-  /** Max speed before pause */
-  double prevMaxSpeed_;
   /** True if visual servoing is done */
   bool vsDone_ = false;
   std::vector<std::string> category_;

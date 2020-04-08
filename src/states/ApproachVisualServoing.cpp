@@ -107,8 +107,7 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
 
   constr_ = std::make_shared<mc_solver::BoundedSpeedConstr>(ctl.robots(), 0, ctl.solver().dt());
   ctl.solver().addConstraintSet(*constr_);
-  pbvsConf("maxSpeed", maxSpeed_);
-  prevMaxSpeed_ = maxSpeed_;
+  pbvsConf("maxSpeed", maxSpeedDesired_);
 
   auto targetOffset = targetMarkerToSurfaceOffset(ctl);
   auto robotOffset = robotMarkerToSurfaceOffset(ctl);
@@ -211,7 +210,6 @@ void ApproachVisualServoing::pause(mc_control::fsm::Controller & ctl)
   if(vsPaused_) return;
   vsPaused_ = true;
   pbvsTask_->error(sva::PTransformd::Identity());
-  prevMaxSpeed_ = maxSpeed_;
   setBoundedSpeed(ctl, 0);
 }
 
@@ -220,39 +218,33 @@ void ApproachVisualServoing::resume(mc_control::fsm::Controller & ctl)
   if(vsResume_) return;
   vsResume_ = true;
   vsPaused_ = false;
+  wasVisible_ = false;
   updatePBVSTask(ctl);
-  setBoundedSpeed(ctl, prevMaxSpeed_);
+  //setBoundedSpeed(ctl, maxSpeedDesired_);
 }
 
 bool ApproachVisualServoing::updatePBVSTask(mc_control::fsm::Controller & ctl)
 {
   auto & task = pbvsTask_;
-  bool visible = true;
-  if(!subscriber_->visible(robotMarkerName_))
+  visible_ = subscriber_->visible(targetMarkerName_) && subscriber_->visible(robotMarkerName_);
+
+  // If the marker becomes not visible, disable task
+  if(!visible_ && wasVisible_)
   {
-    visible = false;
-    LOG_WARNING("[WhyConUpdater] Cannot see robot " << robotMarkerName_ << " marker")
-  }
-  if(!subscriber_->visible(targetMarkerName_))
-  {
-    visible = false;
-    LOG_WARNING("[WhyConUpdater] Cannot see target " << targetMarkerName_ << " marker")
-  }
-  if(!visible && !wasNotVisible_)
-  {
-    LOG_WARNING(
-        "[ApproachVisualServoing] Disabling visual servoing updates, will re-enable when the markers become visible");
+    LOG_WARNING("[ApproachVisualServoing] Disabling visual servoing updates, will re-enable when the markers become visible");
     pbvsTask_->error(sva::PTransformd::Identity());
-    prevMaxSpeed_ = maxSpeed_;
     setBoundedSpeed(ctl, 0);
-    wasNotVisible_ = true;
+    wasVisible_ = false;
     return false;
   }
-  else if(visible && wasNotVisible_)
+
+  // If at last iteration the marker was not visible but now is, re-enable
+  if(visible_ && !wasVisible_)
   {
-    setBoundedSpeed(ctl, prevMaxSpeed_);
-    wasNotVisible_ = false;
+    LOG_INFO("[ApproachVisualServoing] Re-enabling visual servoing");
+    setBoundedSpeed(ctl, maxSpeedDesired_);
   }
+
   static bool once = true;
   auto envOffset = targetMarkerToSurfaceOffset(ctl);
   auto surfaceOffset = robotMarkerToSurfaceOffset(ctl);
@@ -284,6 +276,7 @@ bool ApproachVisualServoing::updatePBVSTask(mc_control::fsm::Controller & ctl)
     once = false;
   }
   task->error(X_t_s);
+  wasVisible_ = visible_;
   return true;
 }
 
@@ -353,8 +346,10 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
           mc_rtc::gui::Label("Stiffness", [this]() { return stiffness_; }),
           mc_rtc::gui::NumberInput("Max stiffness", [this]() { return maxStiffness_; },
                                    [this](double s) { maxStiffness_ = std::max(0., s); }),
-          mc_rtc::gui::NumberInput("Max speed", [this]() { return maxSpeed_; },
-                                   [this, &ctl](double s) { setBoundedSpeed(ctl, std::max(0., s)); }),
+          mc_rtc::gui::Label("Actual max speed", [this]() { return maxSpeed_; }),
+          mc_rtc::gui::NumberInput("Max speed", [this]() { return maxSpeedDesired_; },
+                                   [this, &ctl](double s) { maxSpeedDesired_ = std::max(0., s);
+							   setBoundedSpeed(ctl, maxSpeedDesired_); }),
           mc_rtc::gui::ArrayInput("Offset wrt target surface (translation) [m]", {"x", "y", "z"},
                                   [this]() -> const Eigen::Vector3d & { return targetOffset_.translation(); },
                                   [this](const Eigen::Vector3d & t) { targetOffset_.translation() = t; }),
@@ -375,7 +370,7 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
   else if(!vsDone_)
   {
     // updateLookAt(ctl);
-    if(pbvsTask_->eval().tail(3).norm() < evalTh_ && pbvsTask_->speed().tail(3).norm() < speedTh_ && iter_++ > 10)
+    if(visible_ && pbvsTask_->eval().tail(3).norm() < evalTh_ && pbvsTask_->speed().tail(3).norm() < speedTh_ && iter_++ > 10)
     {
       vsDone_ = true;
       task_->reset();

@@ -36,12 +36,14 @@ private:
   // end of the PBVS task convergence
   sva::PTransformd targetMarkerToSurfaceOffset(const mc_control::fsm::Controller & ctl) const;
 
-  void updatePBVSTask(const mc_control::fsm::Controller & ctl);
+  bool updatePBVSTask(mc_control::fsm::Controller & ctl);
 
   /** Look halfway between the expected marker pose and the marker pose on the
    * robot */
   void updateLookAt(const mc_control::fsm::Controller & ctl);
   void setBoundedSpeed(mc_control::fsm::Controller & ctl, double speed);
+  void pause(mc_control::fsm::Controller & ctl);
+  void resume(mc_control::fsm::Controller & ctl);
 
 private:
   /** Configuration of the state, can be used to retrieve method specific configuration */
@@ -70,8 +72,6 @@ private:
 
   /** Visual servoing task used to adjust the gripper x/y position */
   std::shared_ptr<mc_tasks::PositionBasedVisServoTask> pbvsTask_;
-  /** Task updater for visual servoing task */
-  std::unique_ptr<whycon_plugin::TaskUpdater> updater_;
   std::shared_ptr<mc_solver::BoundedSpeedConstr> constr_;
   /* stiffness of the visual servoing task
    * Note that in case of non-convergence this stiffness will gradually increase
@@ -95,6 +95,8 @@ private:
   bool posDone_ = false;
   /** True if visual servoing was previously paused */
   bool vsResume_ = false;
+  /** True when the marker was not visible at the previous update of PBVS */
+  bool wasNotVisible_ = false;
   /** True if the task is paused */
   bool vsPaused_ = false;
   /** Max speed before pause */

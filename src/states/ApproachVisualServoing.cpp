@@ -112,7 +112,6 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
 
   auto targetOffset = targetMarkerToSurfaceOffset(ctl);
   auto robotOffset = robotMarkerToSurfaceOffset(ctl);
-  updater_.reset(new WhyConUpdater(observer, robotMarkerName_, targetMarkerName_, targetOffset, robotOffset));
 
   /* approach */
   bool useMarker = approachConf("useMarker", false);
@@ -187,6 +186,8 @@ void ApproachVisualServoing::teardown(mc_control::fsm::Controller & ctl)
     ctl.solver().removeTask(pbvsTask_);
     ctl.gui()->removeElement(category_, "Enable visual servoing");
     ctl.gui()->removeElement(category_, "Status");
+    ctl.gui()->removeElement(category_, "Marker " + robotMarkerName_);
+    ctl.gui()->removeElement(category_, "Marker " + targetMarkerName_);
     ctl.gui()->removeElement(category_, "Pause");
     ctl.gui()->removeElement(category_, "Resume");
     ctl.gui()->removeElement(category_, "Stiffness");
@@ -205,21 +206,89 @@ void ApproachVisualServoing::teardown(mc_control::fsm::Controller & ctl)
   }
 }
 
-void ApproachVisualServoing::updatePBVSTask(const mc_control::fsm::Controller & ctl)
+void ApproachVisualServoing::pause(mc_control::fsm::Controller & ctl)
 {
-  auto & updater = static_cast<WhyConUpdater &>(*updater_);
-  updater.envOffset(targetMarkerToSurfaceOffset(ctl));
-  updater.surfaceOffset(robotMarkerToSurfaceOffset(ctl));
-  updater.update(*pbvsTask_);
+  if(vsPaused_) return;
+  vsPaused_ = true;
+  pbvsTask_->error(sva::PTransformd::Identity());
+  prevMaxSpeed_ = maxSpeed_;
+  setBoundedSpeed(ctl, 0);
+}
+
+void ApproachVisualServoing::resume(mc_control::fsm::Controller & ctl)
+{
+  if(vsResume_) return;
+  vsResume_ = true;
+  vsPaused_ = false;
+  updatePBVSTask(ctl);
+  setBoundedSpeed(ctl, prevMaxSpeed_);
+}
+
+bool ApproachVisualServoing::updatePBVSTask(mc_control::fsm::Controller & ctl)
+{
+  auto & task = pbvsTask_;
+  bool visible = true;
+  if(!subscriber_->visible(robotMarkerName_))
+  {
+    visible = false;
+    LOG_WARNING("[WhyConUpdater] Cannot see robot " << robotMarkerName_ << " marker")
+  }
+  if(!subscriber_->visible(targetMarkerName_))
+  {
+    visible = false;
+    LOG_WARNING("[WhyConUpdater] Cannot see target " << targetMarkerName_ << " marker")
+  }
+  if(!visible && !wasNotVisible_)
+  {
+    LOG_WARNING(
+        "[ApproachVisualServoing] Disabling visual servoing updates, will re-enable when the markers become visible");
+    pbvsTask_->error(sva::PTransformd::Identity());
+    prevMaxSpeed_ = maxSpeed_;
+    setBoundedSpeed(ctl, 0);
+    wasNotVisible_ = true;
+    return false;
+  }
+  else if(visible && wasNotVisible_)
+  {
+    setBoundedSpeed(ctl, prevMaxSpeed_);
+    wasNotVisible_ = false;
+  }
+  static bool once = true;
+  auto envOffset = targetMarkerToSurfaceOffset(ctl);
+  auto surfaceOffset = robotMarkerToSurfaceOffset(ctl);
+  auto X_camera_target = envOffset * subscriber_->X_camera_marker(targetMarkerName_);
+  auto X_camera_surface = surfaceOffset * subscriber_->X_camera_marker(robotMarkerName_);
+  auto X_t_s = X_camera_surface * X_camera_target.inv();
+  if(once)
+  {
+    std::cout << "X_camera_target:\n"
+              << "\ttranslation: " << X_camera_target.translation().transpose() << "\n"
+              << "\trotation   : "
+              << mc_rbdyn::rpyFromMat(X_camera_target.rotation()).transpose() * 180 / mc_rtc::constants::PI << "\n";
+    std::cout << "X_camera_surface:\n"
+              << "\ttranslation: " << X_camera_surface.translation().transpose() << "\n"
+              << "\trotation   : "
+              << mc_rbdyn::rpyFromMat(X_camera_surface.rotation()).transpose() * 180 / mc_rtc::constants::PI << "\n";
+    std::cout << "surfaceOffset:\n"
+              << "\ttranslation: " << surfaceOffset.translation().transpose() << "\n"
+              << "\trotation   : "
+              << mc_rbdyn::rpyFromMat(surfaceOffset.rotation()).transpose() * 180 / mc_rtc::constants::PI << "\n";
+    std::cout << "envOffset:\n"
+              << "\ttranslation: " << envOffset.translation().transpose() << "\n"
+              << "\trotation   : "
+              << mc_rbdyn::rpyFromMat(envOffset.rotation()).transpose() * 180 / mc_rtc::constants::PI << "\n";
+    std::cout << "X_t_s:\n"
+              << "\ttranslation: " << X_t_s.translation().transpose() << "\n"
+              << "\trotation   : " << mc_rbdyn::rpyFromMat(X_t_s.rotation()).transpose() * 180 / mc_rtc::constants::PI
+              << "\n";
+    once = false;
+  }
+  task->error(X_t_s);
+  return true;
 }
 
 bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
 {
-  // if(lookAt_)
-  // {
-  //   updater_->updateLookAt(*lookAt_);
-  // }
-
   if(!task_)
   {
     output("NoVision");
@@ -275,22 +344,12 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
                                }
                                return "unknown";
                              }),
-          mc_rtc::gui::Button("Pause",
-                              [this, &ctl]() {
-                                userEnableVS_ = false;
-                                vsPaused_ = true;
-                                pbvsTask_->error(sva::PTransformd::Identity());
-                                prevMaxSpeed_ = maxSpeed_;
-                                setBoundedSpeed(ctl, 0);
-                              }),
-          mc_rtc::gui::Button("Resume",
-                              [this, &ctl]() {
-                                userEnableVS_ = true;
-                                vsResume_ = true;
-                                vsPaused_ = false;
-                                updatePBVSTask(ctl);
-                                setBoundedSpeed(ctl, prevMaxSpeed_);
-                              }),
+          mc_rtc::gui::Label("Marker " + robotMarkerName_,
+                             [this]() { return subscriber_->visible(robotMarkerName_) ? "visible" : "not visible"; }),
+          mc_rtc::gui::Label("Marker " + targetMarkerName_,
+                             [this]() { return subscriber_->visible(targetMarkerName_) ? "visible" : "not visible"; }),
+          mc_rtc::gui::Button("Pause", [this, &ctl]() { pause(ctl); }),
+          mc_rtc::gui::Button("Resume", [this, &ctl]() { resume(ctl); }),
           mc_rtc::gui::Label("Stiffness", [this]() { return stiffness_; }),
           mc_rtc::gui::NumberInput("Max stiffness", [this]() { return maxStiffness_; },
                                    [this](double s) { maxStiffness_ = std::max(0., s); }),

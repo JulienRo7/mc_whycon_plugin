@@ -54,6 +54,21 @@ void ApproachVisualServoing::updateLookAt(const mc_control::fsm::Controller & ct
                       .translation());
 }
 
+void ApproachVisualServoing::setBoundedSpeed(mc_control::fsm::Controller & ctl, double speed)
+{
+  maxSpeed_ = speed;
+  if(constr_)
+  {
+    constr_->removeBoundedSpeed(ctl.solver(), ctl.robot().surface(robotSurface_).bodyName());
+  }
+  Eigen::Vector6d spd;
+  spd << M_PI * maxSpeed_, M_PI * maxSpeed_, M_PI * maxSpeed_, maxSpeed_, maxSpeed_, maxSpeed_;
+  constr_->addBoundedSpeed(ctl.solver(), ctl.robot().surface(robotSurface_).bodyName(),
+                           ctl.robot().surface(robotSurface_).X_b_s().translation(), Eigen::MatrixXd::Identity(6, 6),
+                           -spd, spd);
+  LOG_INFO("[ApproachVisualServoing] Bounded speed set to " << spd.transpose());
+}
+
 void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
 {
   /* Get the selected bracket position from the vision system */
@@ -89,6 +104,11 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
   pbvsConf("manualConfirmation", manualConfirmation_);
   pbvsConf("eval", evalTh_);
   pbvsConf("speed", speedTh_);
+
+  constr_ = std::make_shared<mc_solver::BoundedSpeedConstr>(ctl.robots(), 0, ctl.solver().dt());
+  ctl.solver().addConstraintSet(*constr_);
+  pbvsConf("maxSpeed", maxSpeed_);
+  prevMaxSpeed_ = maxSpeed_;
 
   auto targetOffset = targetMarkerToSurfaceOffset(ctl);
   auto robotOffset = robotMarkerToSurfaceOffset(ctl);
@@ -166,16 +186,22 @@ void ApproachVisualServoing::teardown(mc_control::fsm::Controller & ctl)
     ctl.solver().removeTask(task_);
     ctl.solver().removeTask(pbvsTask_);
     ctl.gui()->removeElement(category_, "Enable visual servoing");
+    ctl.gui()->removeElement(category_, "Status");
     ctl.gui()->removeElement(category_, "Pause");
     ctl.gui()->removeElement(category_, "Resume");
     ctl.gui()->removeElement(category_, "Stiffness");
     ctl.gui()->removeElement(category_, "Max stiffness");
+    ctl.gui()->removeElement(category_, "Max speed");
     ctl.gui()->removeElement(category_, "Offset wrt target surface (translation) [m]");
     ctl.gui()->removeElement(category_, "Offset wrt target surface (rotation) [deg]");
   }
   if(lookAt_)
   {
     ctl.solver().removeTask(lookAt_);
+  }
+  if(constr_)
+  {
+    ctl.solver().removeConstraintSet(*constr_);
   }
 }
 
@@ -215,6 +241,8 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
         ctl.solver().removeTask(task_);
         ctl.solver().addTask(pbvsTask_);
         updatePBVSTask(ctl);
+        // Limit speed of visual servoing
+        setBoundedSpeed(ctl, maxSpeed_);
         ctl.gui()->removeElement(category_, "Enable visual servoing");
       };
       if(manualConfirmation_)
@@ -252,6 +280,8 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
                                 userEnableVS_ = false;
                                 vsPaused_ = true;
                                 pbvsTask_->error(sva::PTransformd::Identity());
+                                prevMaxSpeed_ = maxSpeed_;
+                                setBoundedSpeed(ctl, 0);
                               }),
           mc_rtc::gui::Button("Resume",
                               [this, &ctl]() {
@@ -259,10 +289,13 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
                                 vsResume_ = true;
                                 vsPaused_ = false;
                                 updatePBVSTask(ctl);
+                                setBoundedSpeed(ctl, prevMaxSpeed_);
                               }),
           mc_rtc::gui::Label("Stiffness", [this]() { return stiffness_; }),
           mc_rtc::gui::NumberInput("Max stiffness", [this]() { return maxStiffness_; },
                                    [this](double s) { maxStiffness_ = std::max(0., s); }),
+          mc_rtc::gui::NumberInput("Max speed", [this]() { return maxSpeed_; },
+                                   [this, &ctl](double s) { setBoundedSpeed(ctl, std::max(0., s)); }),
           mc_rtc::gui::ArrayInput("Offset wrt target surface (translation) [m]", {"x", "y", "z"},
                                   [this]() -> const Eigen::Vector3d & { return targetOffset_.translation(); },
                                   [this](const Eigen::Vector3d & t) { targetOffset_.translation() = t; }),
@@ -282,7 +315,7 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
   }
   else if(!vsDone_)
   {
-    updateLookAt(ctl);
+    // updateLookAt(ctl);
     if(pbvsTask_->eval().tail(3).norm() < evalTh_ && pbvsTask_->speed().tail(3).norm() < speedTh_ && iter_++ > 10)
     {
       vsDone_ = true;

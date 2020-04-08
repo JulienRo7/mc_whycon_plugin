@@ -4,6 +4,7 @@
 #include <mc_control/fsm/Controller.h>
 #include <mc_whycon_plugin/TaskUpdater.h>
 
+#include <mc_solver/BoundedSpeedConstr.h>
 #include <mc_tasks/BSplineTrajectoryTask.h>
 #include <mc_tasks/LookAtTask.h>
 #include <mc_tasks/PositionBasedVisServoTask.h>
@@ -40,6 +41,7 @@ private:
   /** Look halfway between the expected marker pose and the marker pose on the
    * robot */
   void updateLookAt(const mc_control::fsm::Controller & ctl);
+  void setBoundedSpeed(mc_control::fsm::Controller & ctl, double speed);
 
 private:
   /** Configuration of the state, can be used to retrieve method specific configuration */
@@ -70,12 +72,14 @@ private:
   std::shared_ptr<mc_tasks::PositionBasedVisServoTask> pbvsTask_;
   /** Task updater for visual servoing task */
   std::unique_ptr<whycon_plugin::TaskUpdater> updater_;
+  std::shared_ptr<mc_solver::BoundedSpeedConstr> constr_;
   /* stiffness of the visual servoing task
    * Note that in case of non-convergence this stiffness will gradually increase
    * until convergence up to maxStiffness_
    **/
   double stiffness_ = 2;
   double maxStiffness_ = 2;
+  double maxSpeed_ = 0.01;
   /** Whether visual servoing needs to be manually triggered */
   bool manualConfirmation_ = true;
   /** Evaluation threshold for the task */
@@ -93,6 +97,8 @@ private:
   bool vsResume_ = false;
   /** True if the task is paused */
   bool vsPaused_ = false;
+  /** Max speed before pause */
+  double prevMaxSpeed_;
   /** True if visual servoing is done */
   bool vsDone_ = false;
   std::vector<std::string> category_;

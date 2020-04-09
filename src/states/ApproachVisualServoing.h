@@ -52,6 +52,7 @@ private:
   sva::PTransformd X_0_bracket_;
   std::string robotSurface_;
   std::string targetSurface_;
+  sva::PTransformd targetSurfaceOffset_ = sva::PTransformd::Identity();
   std::string robotMarkerName_;
   std::string targetMarkerName_;
 

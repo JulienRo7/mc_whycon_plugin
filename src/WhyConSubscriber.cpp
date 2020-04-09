@@ -16,7 +16,7 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
   {
     LOG_ERROR_AND_THROW(std::runtime_error, "[WhyConSubscriber] ROS is not available")
   }
-  bool simulation = config("simulation");
+  bool simulation = ctl.config()("simulation", false);
   auto methodConf = config("whycon");
 
   auto markers = methodConf("markers");

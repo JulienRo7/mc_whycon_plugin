@@ -5,9 +5,6 @@ camera:
     translation: [0, 0, 0]
     rotation: [0, 0, -1.57]
 
-# whether we are running in simulation
-simulation: false
-
 # Options related to each method
 whycon:
   topic: "/whycon_lshape/whycon_lshape" # Only used if simulation is false
@@ -21,6 +18,8 @@ whycon:
     beam_left:
       robot: bolting_structure
       relative: BeamLeft
+      pos:
+        translation: [-0.25,0,0]
 
     # Gripper position, relative to the robot hand
     left_gripper:
@@ -28,6 +27,12 @@ whycon:
       relative: LForearmFront
       pos:
         translation: [0, 0, 0]
+        rotation: [0, 0, 0]
+
+    right_gripper:
+      relative: RHandFront
+      pos:
+        translation: [-0.025, -0.019, 0]
         rotation: [0, 0, 0]
 
     facom_tool:

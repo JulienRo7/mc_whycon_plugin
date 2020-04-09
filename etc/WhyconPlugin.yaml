@@ -19,7 +19,7 @@ whycon:
       robot: bolting_structure
       relative: BeamLeft
       pos:
-        translation: [-0.25,0,0]
+        translation: [-0.15,0,0]
 
     # Gripper position, relative to the robot hand
     left_gripper:

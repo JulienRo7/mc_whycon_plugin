@@ -56,15 +56,18 @@ void ApproachVisualServoing::updateLookAt(const mc_control::fsm::Controller & ct
 
 void ApproachVisualServoing::setBoundedSpeed(mc_control::fsm::Controller & ctl, double speed)
 {
+  const auto & robotMarker = subscriber_->lshape(robotMarkerName_);
+  auto & robot = ctl.robots().robot(robotMarker.robot);
+
   maxSpeed_ = speed;
   if(constr_)
   {
-    constr_->removeBoundedSpeed(ctl.solver(), ctl.robot().surface(robotSurface_).bodyName());
+    constr_->removeBoundedSpeed(ctl.solver(), robot.surface(robotSurface_).bodyName());
   }
   Eigen::Vector6d spd;
   spd << M_PI * maxSpeed_, M_PI * maxSpeed_, M_PI * maxSpeed_, maxSpeed_, maxSpeed_, maxSpeed_;
-  constr_->addBoundedSpeed(ctl.solver(), ctl.robot().surface(robotSurface_).bodyName(),
-                           ctl.robot().surface(robotSurface_).X_b_s().translation(), Eigen::MatrixXd::Identity(6, 6),
+  constr_->addBoundedSpeed(ctl.solver(), robot.surface(robotSurface_).bodyName(),
+                           robot.surface(robotSurface_).X_b_s().translation(), Eigen::MatrixXd::Identity(6, 6),
                            -spd, spd);
   LOG_INFO("[ApproachVisualServoing] Bounded speed set to " << spd.transpose());
 }
@@ -106,7 +109,7 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
   pbvsConf("eval", evalTh_);
   pbvsConf("speed", speedTh_);
 
-  constr_ = std::make_shared<mc_solver::BoundedSpeedConstr>(ctl.robots(), 0, ctl.solver().dt());
+  constr_ = std::make_shared<mc_solver::BoundedSpeedConstr>(ctl.robots(), robot.robotIndex(), ctl.solver().dt());
   ctl.solver().addConstraintSet(*constr_);
   pbvsConf("maxSpeed", maxSpeedDesired_);
 
@@ -168,7 +171,8 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
     const auto & lookConf = config_("lookAt");
     lookAt_ =
         std::make_shared<mc_tasks::LookAtTask>(lookConf("body"), lookConf("bodyVector"), ctl.robots(),
-                                               robot.robotIndex(), lookConf("stiffness", 2.), lookConf("weight", 100.));
+                                               ctl.robots().robot(lookConf("robot", ctl.robots().robot().name())).robotIndex(),
+                                               lookConf("stiffness", 2.), lookConf("weight", 100.));
     if(lookConf.has("joints"))
     {
       lookAt_->selectActiveJoints(lookConf("joints"));

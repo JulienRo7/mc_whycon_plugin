@@ -44,6 +44,7 @@ private:
   void setBoundedSpeed(mc_control::fsm::Controller & ctl, double speed);
   void pause(mc_control::fsm::Controller & ctl);
   void resume(mc_control::fsm::Controller & ctl);
+  void enableVisualServoing(mc_control::fsm::Controller & ctl);
 
 private:
   /** Configuration of the state, can be used to retrieve method specific configuration */
@@ -70,6 +71,8 @@ private:
   mc_control::CompletionCriteria taskCrit_;
   /** Waypoints */
   std::vector<sva::PTransformd> waypoints_;
+  /* Whether to perform the approach phase */
+  bool useApproach_ = true;
 
   /** Visual servoing task used to adjust the gripper x/y position */
   std::shared_ptr<mc_tasks::PositionBasedVisServoTask> pbvsTask_;

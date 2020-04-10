@@ -64,6 +64,7 @@ bool MoveUntilTouch::run(mc_control::fsm::Controller & ctl)
 {
   if(done_)
   {
+    output("OK");
     return true;
   }
 
@@ -73,7 +74,7 @@ bool MoveUntilTouch::run(mc_control::fsm::Controller & ctl)
     iter_++;
     if(iter_ >= 5)
     {
-      LOG_INFO("[" << name() << "] Pressure threhsold detected\n")
+      LOG_INFO("[" << name() << "] Pressure threhsold detected")
       done();
       output("OK");
       return true;
@@ -88,7 +89,7 @@ bool MoveUntilTouch::run(mc_control::fsm::Controller & ctl)
   double distance = X_target_surface.translation().dot(direction_);
   if(distance > distanceThreshold_)
   {
-    LOG_INFO("[" << name() << "] Distance threshold detected\n")
+    LOG_INFO("[" << name() << "] Distance threshold detected")
     done();
     output("OK");
     return true;

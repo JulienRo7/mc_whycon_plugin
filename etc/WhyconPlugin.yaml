@@ -32,7 +32,7 @@ whycon:
     right_gripper:
       relative: RHandFront
       pos:
-        translation: [-0.025, -0.019, 0]
+        translation: [-0.033, -0.019, 0]
         rotation: [0, 0, 0]
 
     facom_tool:

@@ -84,6 +84,7 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
   pbvsConf("offset", targetOffset_);
 
   const auto & approachConf = config_("approach");
+  approachConf("use", useApproach_);
   robotMarkerName_ = static_cast<std::string>(config_("robot")("marker"));
   robotSurface_ = static_cast<std::string>(config_("robot")("surface"));
   targetMarkerName_ = static_cast<std::string>(config_("target")("marker"));
@@ -163,7 +164,14 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
   taskCrit_.configure(*task_, ctl.solver().dt(), approachConf("completion"));
 
   task_->reset();
-  ctl.solver().addTask(task_);
+  if(useApproach_)
+  {
+    ctl.solver().addTask(task_);
+  }
+  else
+  {
+    setBoundedSpeed(ctl, 0.);
+  }
 
   /** Setup look at task */
   if(config_.has("lookAt"))
@@ -179,7 +187,6 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
     }
     // Target the expected pose
     lookAt_->target(X_0_targetSurface_.translation());
-    ctl.solver().addTask(lookAt_);
   }
 }
 
@@ -189,18 +196,7 @@ void ApproachVisualServoing::teardown(mc_control::fsm::Controller & ctl)
   {
     ctl.solver().removeTask(task_);
     ctl.solver().removeTask(pbvsTask_);
-    ctl.gui()->removeElement(category_, "Enable visual servoing");
-    ctl.gui()->removeElement(category_, "Status");
-    ctl.gui()->removeElement(category_, "Marker " + robotMarkerName_);
-    ctl.gui()->removeElement(category_, "Marker " + targetMarkerName_);
-    ctl.gui()->removeElement(category_, "Pause");
-    ctl.gui()->removeElement(category_, "Resume");
-    ctl.gui()->removeElement(category_, "Stiffness");
-    ctl.gui()->removeElement(category_, "Max stiffness");
-    ctl.gui()->removeElement(category_, "Actual max speed");
-    ctl.gui()->removeElement(category_, "Max speed");
-    ctl.gui()->removeElement(category_, "Offset wrt target surface (translation) [m]");
-    ctl.gui()->removeElement(category_, "Offset wrt target surface (rotation) [deg]");
+    ctl.gui()->removeCategory(category_);
   }
   if(lookAt_)
   {
@@ -228,6 +224,17 @@ void ApproachVisualServoing::resume(mc_control::fsm::Controller & ctl)
   wasVisible_ = false;
   updatePBVSTask(ctl);
   // setBoundedSpeed(ctl, maxSpeedDesired_);
+}
+
+void ApproachVisualServoing::enableVisualServoing(mc_control::fsm::Controller & ctl)
+{
+  userEnableVS_ = true;
+  ctl.solver().removeTask(task_);
+  ctl.solver().addTask(pbvsTask_);
+  updatePBVSTask(ctl);
+  // Limit speed of visual servoing
+  setBoundedSpeed(ctl, maxSpeed_);
+  ctl.gui()->removeElement(category_, "Enable visual servoing");
 }
 
 bool ApproachVisualServoing::updatePBVSTask(mc_control::fsm::Controller & ctl)
@@ -299,29 +306,26 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
   /* Approach trajectory completed, start visual servoing */
   if(!posDone_)
   {
-    bool completed = taskCrit_.completed(*task_) && iter_++ > 10;
+    bool completed = !useApproach_ || (taskCrit_.completed(*task_) && iter_++ > 10);
     if(completed)
     {
       posDone_ = true;
       iter_ = 0;
       // Look halfway between the expected markers
+      ctl.solver().addTask(lookAt_);
+      LOG_INFO("completed, update lookat");
       updateLookAt(ctl);
-      auto enableVisualServoing = [this, &ctl]() {
-        userEnableVS_ = true;
-        ctl.solver().removeTask(task_);
-        ctl.solver().addTask(pbvsTask_);
-        updatePBVSTask(ctl);
-        // Limit speed of visual servoing
-        setBoundedSpeed(ctl, maxSpeed_);
-        ctl.gui()->removeElement(category_, "Enable visual servoing");
-      };
       if(manualConfirmation_)
       {
-        ctl.gui()->addElement(category_, mc_rtc::gui::Button("Enable visual servoing", enableVisualServoing));
+        ctl.gui()->addElement(category_, mc_rtc::gui::Button("Enable visual servoing",
+        [this, &ctl]() {
+          this->enableVisualServoing(ctl);
+        }
+        ));
       }
       else
       {
-        enableVisualServoing();
+        enableVisualServoing(ctl);
       }
       ctl.gui()->addElement(
           category_,
@@ -349,6 +353,14 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
                              [this]() { return subscriber_->visible(robotMarkerName_) ? "visible" : "not visible"; }),
           mc_rtc::gui::Label("Marker " + targetMarkerName_,
                              [this]() { return subscriber_->visible(targetMarkerName_) ? "visible" : "not visible"; }),
+          mc_rtc::gui::Label("Error [m]",
+                             [this]() {
+                              if(pbvsTask_)
+                              {
+                               return pbvsTask_->eval().tail(3).norm();
+                              }
+                              return 0.;
+                             }),
           mc_rtc::gui::Button("Pause", [this, &ctl]() { pause(ctl); }),
           mc_rtc::gui::Button("Resume", [this, &ctl]() { resume(ctl); }),
           mc_rtc::gui::Label("Stiffness", [this]() { return stiffness_; }),
@@ -359,6 +371,10 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
                                    [this, &ctl](double s) {
                                      maxSpeedDesired_ = std::max(0., s);
                                      setBoundedSpeed(ctl, maxSpeedDesired_);
+                                   }),
+          mc_rtc::gui::NumberInput("Convergence Threshold [m]", [this]() { return evalTh_; },
+                                   [this, &ctl](double s) {
+                                     evalTh_ = std::max(0., s);
                                    }),
           mc_rtc::gui::ArrayInput("Offset wrt target surface (translation) [m]", {"x", "y", "z"},
                                   [this]() -> const Eigen::Vector3d & { return targetOffset_.translation(); },

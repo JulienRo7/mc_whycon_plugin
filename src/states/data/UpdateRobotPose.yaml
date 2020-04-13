@@ -1,0 +1,18 @@
+WhyconPlugin::UpdateRobotPose::Example:
+  base: WhyconPlugin::UpdateRobotPose
+  object: 
+    name: facom_tool
+    surface: HandleTop
+    offset:
+      translation: [0,0,0]
+      rotation: [0,0,0]
+
+  robot:
+    useReal: false
+    # name is optional, by default the main robot will be used
+    # name: jvrc-1
+    surface: LeftHand
+    # offset is optional, default is identity
+    offset:
+      translation: [0,0,0]
+      rotation: [0,0,0]

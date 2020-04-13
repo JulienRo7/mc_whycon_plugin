@@ -25,7 +25,7 @@ void MoveUntilTouch::start(mc_control::fsm::Controller & ctl)
   if(relative == "robot")
   {
     positionZero_ = ctl.robot().surfacePose(task_->surface());
-    worldDirection_ = positionZero_.rotation().inverse() * direction_ ;
+    worldDirection_ = positionZero_.rotation().inverse() * direction_;
   }
   else if(relative == "target")
   {

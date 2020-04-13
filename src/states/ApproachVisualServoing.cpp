@@ -67,8 +67,8 @@ void ApproachVisualServoing::setBoundedSpeed(mc_control::fsm::Controller & ctl, 
   Eigen::Vector6d spd;
   spd << M_PI * maxSpeed_, M_PI * maxSpeed_, M_PI * maxSpeed_, maxSpeed_, maxSpeed_, maxSpeed_;
   constr_->addBoundedSpeed(ctl.solver(), robot.surface(robotSurface_).bodyName(),
-                           robot.surface(robotSurface_).X_b_s().translation(), Eigen::MatrixXd::Identity(6, 6),
-                           -spd, spd);
+                           robot.surface(robotSurface_).X_b_s().translation(), Eigen::MatrixXd::Identity(6, 6), -spd,
+                           spd);
   LOG_INFO("[ApproachVisualServoing] Bounded speed set to " << spd.transpose());
 }
 
@@ -177,10 +177,10 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
   if(config_.has("lookAt"))
   {
     const auto & lookConf = config_("lookAt");
-    lookAt_ =
-        std::make_shared<mc_tasks::LookAtTask>(lookConf("body"), lookConf("bodyVector"), ctl.robots(),
-                                               ctl.robots().robot(lookConf("robot", ctl.robots().robot().name())).robotIndex(),
-                                               lookConf("stiffness", 2.), lookConf("weight", 100.));
+    lookAt_ = std::make_shared<mc_tasks::LookAtTask>(
+        lookConf("body"), lookConf("bodyVector"), ctl.robots(),
+        ctl.robots().robot(lookConf("robot", ctl.robots().robot().name())).robotIndex(), lookConf("stiffness", 2.),
+        lookConf("weight", 100.));
     if(lookConf.has("joints"))
     {
       lookAt_->selectActiveJoints(lookConf("joints"));
@@ -318,10 +318,7 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
       if(manualConfirmation_)
       {
         ctl.gui()->addElement(category_, mc_rtc::gui::Button("Enable visual servoing",
-        [this, &ctl]() {
-          this->enableVisualServoing(ctl);
-        }
-        ));
+                                                             [this, &ctl]() { this->enableVisualServoing(ctl); }));
       }
       else
       {
@@ -355,11 +352,11 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
                              [this]() { return subscriber_->visible(targetMarkerName_) ? "visible" : "not visible"; }),
           mc_rtc::gui::Label("Error [m]",
                              [this]() {
-                              if(pbvsTask_)
-                              {
-                               return pbvsTask_->eval().tail(3).norm();
-                              }
-                              return 0.;
+                               if(pbvsTask_)
+                               {
+                                 return pbvsTask_->eval().tail(3).norm();
+                               }
+                               return 0.;
                              }),
           mc_rtc::gui::Button("Pause", [this, &ctl]() { pause(ctl); }),
           mc_rtc::gui::Button("Resume", [this, &ctl]() { resume(ctl); }),
@@ -373,9 +370,7 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
                                      setBoundedSpeed(ctl, maxSpeedDesired_);
                                    }),
           mc_rtc::gui::NumberInput("Convergence Threshold [m]", [this]() { return evalTh_; },
-                                   [this, &ctl](double s) {
-                                     evalTh_ = std::max(0., s);
-                                   }),
+                                   [this, &ctl](double s) { evalTh_ = std::max(0., s); }),
           mc_rtc::gui::ArrayInput("Offset wrt target surface (translation) [m]", {"x", "y", "z"},
                                   [this]() -> const Eigen::Vector3d & { return targetOffset_.translation(); },
                                   [this](const Eigen::Vector3d & t) { targetOffset_.translation() = t; }),

@@ -1,6 +1,7 @@
 #include "UpdateRobotPose.h"
 #include <mc_control/fsm/Controller.h>
 #include <mc_rbdyn/rpy_utils.h>
+#include <mc_rtc/ConfigurationHelpers.h>
 
 void UpdateRobotPose::configure(const mc_rtc::Configuration & config)
 {
@@ -25,6 +26,8 @@ void UpdateRobotPose::start(mc_control::fsm::Controller & ctl)
     robotConf("offset", robotSurfaceOffset_);
   }
 
+  additionalRobots_ = mc_rtc::fromVectorOrElement(config_, "additionalRobots", std::vector<std::string>{});
+
   auto & r = [&ctl, this]() -> mc_rbdyn::Robot & {
     return useReal_ ? ctl.realRobots().robot(robotName_) : ctl.robots().robot(robotName_);
   }();
@@ -36,7 +39,20 @@ void UpdateRobotPose::start(mc_control::fsm::Controller & ctl)
   // Transform from object frame to its surface with a user-specified offset
   sva::PTransformd X_object_surfaceOffset = surfaceOffset_ * X_object_surface;
   sva::PTransformd X_0_object = X_object_surfaceOffset.inv() * X_0_robotSurfaceWithOffset;
+  auto X_0_prevObject = o.posW();
   o.posW(X_0_object);
+  LOG_INFO("[" << name() << "] Updated object robot " << name_);
+
+  if(additionalRobots_.size())
+  {
+    for(const auto & updateRobotName : additionalRobots_)
+    {
+      auto & updateRobot = ctl.robots().robot(updateRobotName);
+      auto X_object_robot = updateRobot.posW() * X_0_prevObject.inv();
+      updateRobot.posW(X_object_robot * X_0_object);
+      LOG_INFO("[" << name() << "] Updated additional robot " << updateRobotName);
+    }
+  }
 }
 
 bool UpdateRobotPose::run(mc_control::fsm::Controller & ctl)

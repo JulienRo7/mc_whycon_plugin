@@ -107,12 +107,14 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
     pbvsTask_->selectActiveJoints(pbvsConf("joints"));
   }
   pbvsConf("manualConfirmation", manualConfirmation_);
+  pbvsConf("use", useVisualServoing_);
   pbvsConf("eval", evalTh_);
   pbvsConf("speed", speedTh_);
 
   constr_ = std::make_shared<mc_solver::BoundedSpeedConstr>(ctl.robots(), robot.robotIndex(), ctl.solver().dt());
   ctl.solver().addConstraintSet(*constr_);
   pbvsConf("maxSpeed", maxSpeedDesired_);
+  maxSpeed_ = maxSpeedDesired_;
 
   auto targetOffset = targetMarkerToSurfaceOffset(ctl);
   auto robotOffset = robotMarkerToSurfaceOffset(ctl);
@@ -233,7 +235,7 @@ void ApproachVisualServoing::enableVisualServoing(mc_control::fsm::Controller & 
   ctl.solver().addTask(pbvsTask_);
   updatePBVSTask(ctl);
   // Limit speed of visual servoing
-  setBoundedSpeed(ctl, maxSpeed_);
+  setBoundedSpeed(ctl, maxSpeedDesired_);
   ctl.gui()->removeElement(category_, "Enable visual servoing");
 }
 
@@ -315,15 +317,17 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
       ctl.solver().addTask(lookAt_);
       LOG_INFO("completed, update lookat");
       updateLookAt(ctl);
-      if(manualConfirmation_)
+      if(useVisualServoing_)
       {
-        ctl.gui()->addElement(category_, mc_rtc::gui::Button("Enable visual servoing",
-                                                             [this, &ctl]() { this->enableVisualServoing(ctl); }));
-      }
-      else
-      {
-        enableVisualServoing(ctl);
-      }
+        if(manualConfirmation_)
+        {
+          ctl.gui()->addElement(category_, mc_rtc::gui::Button("Enable visual servoing",
+                                                               [this, &ctl]() { this->enableVisualServoing(ctl); }));
+        }
+        else
+        {
+          enableVisualServoing(ctl);
+        }
       ctl.gui()->addElement(
           category_,
           mc_rtc::gui::Label("Status",
@@ -382,13 +386,14 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
                                   [this](const Eigen::Vector3d & rpy) {
                                     targetOffset_.rotation() = mc_rbdyn::rpyToMat(rpy * mc_rtc::constants::PI / 180.);
                                   }));
+      }
     }
   }
-  else if(!userEnableVS_ || vsPaused_ || vsResume_)
+  else if(useVisualServoing_ && (!userEnableVS_ || vsPaused_ || vsResume_))
   { // visual servoing disabled, do nothing
     vsResume_ = false;
   }
-  else if(!vsDone_)
+  else if(useVisualServoing_ && !vsDone_)
   {
     // updateLookAt(ctl);
     if(visible_ && pbvsTask_->eval().tail(3).norm() < evalTh_ && pbvsTask_->speed().tail(3).norm() < speedTh_

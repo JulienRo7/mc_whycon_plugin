@@ -73,6 +73,8 @@ private:
   std::vector<sva::PTransformd> waypoints_;
   /* Whether to perform the approach phase */
   bool useApproach_ = true;
+  /* Whether to use the visual servoing phase */
+  bool useVisualServoing_ = true;
 
   /** Visual servoing task used to adjust the gripper x/y position */
   std::shared_ptr<mc_tasks::PositionBasedVisServoTask> pbvsTask_;

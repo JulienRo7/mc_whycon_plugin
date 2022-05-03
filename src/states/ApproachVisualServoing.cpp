@@ -69,7 +69,7 @@ void ApproachVisualServoing::setBoundedSpeed(mc_control::fsm::Controller & ctl, 
   constr_->addBoundedSpeed(ctl.solver(), robot.surface(robotSurface_).bodyName(),
                            robot.surface(robotSurface_).X_b_s().translation(), Eigen::MatrixXd::Identity(6, 6), -spd,
                            spd);
-  LOG_INFO("[ApproachVisualServoing] Bounded speed set to " << spd.transpose());
+  mc_rtc::log::info("[{}] Bounded speed set to {}", name(), spd.transpose());
 }
 
 void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
@@ -247,8 +247,8 @@ bool ApproachVisualServoing::updatePBVSTask(mc_control::fsm::Controller & ctl)
   // If the marker becomes not visible, disable task
   if(!visible_ && wasVisible_)
   {
-    LOG_WARNING(
-        "[ApproachVisualServoing] Disabling visual servoing updates, will re-enable when the markers become visible");
+    mc_rtc::log::warning("[{}] Disabling visual servoing updates, will re-enable when the markers become visible",
+                         name());
     pbvsTask_->error(sva::PTransformd::Identity());
     setBoundedSpeed(ctl, 0);
     wasVisible_ = false;
@@ -258,7 +258,7 @@ bool ApproachVisualServoing::updatePBVSTask(mc_control::fsm::Controller & ctl)
   // If at last iteration the marker was not visible but now is, re-enable
   if(visible_ && !wasVisible_)
   {
-    LOG_INFO("[ApproachVisualServoing] Re-enabling visual servoing");
+    mc_rtc::log::info("[{}] Re-enabling visual servoing", name());
     setBoundedSpeed(ctl, maxSpeedDesired_);
   }
 
@@ -315,7 +315,7 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
       iter_ = 0;
       // Look halfway between the expected markers
       ctl.solver().addTask(lookAt_);
-      LOG_INFO("completed, update lookat");
+      mc_rtc::log::info("[{}] completed, update lookat", name());
       updateLookAt(ctl);
       if(useVisualServoing_)
       {
@@ -328,64 +328,69 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
         {
           enableVisualServoing(ctl);
         }
-      ctl.gui()->addElement(
-          category_,
-          mc_rtc::gui::Label("Status",
-                             [this]() {
-                               if(vsPaused_)
-                               {
-                                 return "paused";
-                               }
-                               else if(!userEnableVS_)
-                               {
-                                 return "not enabled";
-                               }
-                               else if(userEnableVS_ && !vsDone_)
-                               {
-                                 return "active";
-                               }
-                               else if(userEnableVS_ && vsDone_)
-                               {
-                                 return "converged";
-                               }
-                               return "unknown";
-                             }),
-          mc_rtc::gui::Label("Marker " + robotMarkerName_,
-                             [this]() { return subscriber_->visible(robotMarkerName_) ? "visible" : "not visible"; }),
-          mc_rtc::gui::Label("Marker " + targetMarkerName_,
-                             [this]() { return subscriber_->visible(targetMarkerName_) ? "visible" : "not visible"; }),
-          mc_rtc::gui::Label("Error [m]",
-                             [this]() {
-                               if(pbvsTask_)
-                               {
-                                 return pbvsTask_->eval().tail(3).norm();
-                               }
-                               return 0.;
-                             }),
-          mc_rtc::gui::Button("Pause", [this, &ctl]() { pause(ctl); }),
-          mc_rtc::gui::Button("Resume", [this, &ctl]() { resume(ctl); }),
-          mc_rtc::gui::Label("Stiffness", [this]() { return stiffness_; }),
-          mc_rtc::gui::NumberInput("Max stiffness", [this]() { return maxStiffness_; },
-                                   [this](double s) { maxStiffness_ = std::max(0., s); }),
-          mc_rtc::gui::Label("Actual max speed", [this]() { return maxSpeed_; }),
-          mc_rtc::gui::NumberInput("Max speed", [this]() { return maxSpeedDesired_; },
-                                   [this, &ctl](double s) {
-                                     maxSpeedDesired_ = std::max(0., s);
-                                     setBoundedSpeed(ctl, maxSpeedDesired_);
-                                   }),
-          mc_rtc::gui::NumberInput("Convergence Threshold [m]", [this]() { return evalTh_; },
-                                   [this, &ctl](double s) { evalTh_ = std::max(0., s); }),
-          mc_rtc::gui::ArrayInput("Offset wrt target surface (translation) [m]", {"x", "y", "z"},
-                                  [this]() -> const Eigen::Vector3d & { return targetOffset_.translation(); },
-                                  [this](const Eigen::Vector3d & t) { targetOffset_.translation() = t; }),
-          mc_rtc::gui::ArrayInput("Offset wrt target surface (rotation) [deg]", {"r", "p", "y"},
-                                  [this]() -> Eigen::Vector3d {
-                                    return mc_rbdyn::rpyFromMat(targetOffset_.rotation()) * 180.
-                                           / mc_rtc::constants::PI;
-                                  },
-                                  [this](const Eigen::Vector3d & rpy) {
-                                    targetOffset_.rotation() = mc_rbdyn::rpyToMat(rpy * mc_rtc::constants::PI / 180.);
-                                  }));
+        ctl.gui()->addElement(
+            category_,
+            mc_rtc::gui::Label("Status",
+                               [this]() {
+                                 if(vsPaused_)
+                                 {
+                                   return "paused";
+                                 }
+                                 else if(!userEnableVS_)
+                                 {
+                                   return "not enabled";
+                                 }
+                                 else if(userEnableVS_ && !vsDone_)
+                                 {
+                                   return "active";
+                                 }
+                                 else if(userEnableVS_ && vsDone_)
+                                 {
+                                   return "converged";
+                                 }
+                                 return "unknown";
+                               }),
+            mc_rtc::gui::Label("Marker " + robotMarkerName_,
+                               [this]() { return subscriber_->visible(robotMarkerName_) ? "visible" : "not visible"; }),
+            mc_rtc::gui::Label(
+                "Marker " + targetMarkerName_,
+                [this]() { return subscriber_->visible(targetMarkerName_) ? "visible" : "not visible"; }),
+            mc_rtc::gui::Label("Error [m]",
+                               [this]() {
+                                 if(pbvsTask_)
+                                 {
+                                   return pbvsTask_->eval().tail(3).norm();
+                                 }
+                                 return 0.;
+                               }),
+            mc_rtc::gui::Button("Pause", [this, &ctl]() { pause(ctl); }),
+            mc_rtc::gui::Button("Resume", [this, &ctl]() { resume(ctl); }),
+            mc_rtc::gui::Label("Stiffness", [this]() { return stiffness_; }),
+            mc_rtc::gui::NumberInput(
+                "Max stiffness", [this]() { return maxStiffness_; },
+                [this](double s) { maxStiffness_ = std::max(0., s); }),
+            mc_rtc::gui::Label("Actual max speed", [this]() { return maxSpeed_; }),
+            mc_rtc::gui::NumberInput(
+                "Max speed", [this]() { return maxSpeedDesired_; },
+                [this, &ctl](double s) {
+                  maxSpeedDesired_ = std::max(0., s);
+                  setBoundedSpeed(ctl, maxSpeedDesired_);
+                }),
+            mc_rtc::gui::NumberInput(
+                "Convergence Threshold [m]", [this]() { return evalTh_; },
+                [this, &ctl](double s) { evalTh_ = std::max(0., s); }),
+            mc_rtc::gui::ArrayInput(
+                "Offset wrt target surface (translation) [m]", {"x", "y", "z"},
+                [this]() -> const Eigen::Vector3d & { return targetOffset_.translation(); },
+                [this](const Eigen::Vector3d & t) { targetOffset_.translation() = t; }),
+            mc_rtc::gui::ArrayInput(
+                "Offset wrt target surface (rotation) [deg]", {"r", "p", "y"},
+                [this]() -> Eigen::Vector3d {
+                  return mc_rbdyn::rpyFromMat(targetOffset_.rotation()) * 180. / mc_rtc::constants::PI;
+                },
+                [this](const Eigen::Vector3d & rpy) {
+                  targetOffset_.rotation() = mc_rbdyn::rpyToMat(rpy * mc_rtc::constants::PI / 180.);
+                }));
       }
     }
   }

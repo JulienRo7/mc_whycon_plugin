@@ -21,12 +21,12 @@ bool WhyConUpdater::update(mc_tasks::MetaTask & task_)
   if(!subscriber_.visible(surface_))
   {
     visible = false;
-    LOG_ERROR("[WhyConUpdater] Cannot see " << surface_ << " marker")
+    mc_rtc::log::error("[WhyConUpdater] Cannot see {} marker", surface_);
   }
   if(!subscriber_.visible(env_))
   {
     visible = false;
-    LOG_ERROR("[WhyConUpdater] Cannot see " << env_ << " marker")
+    mc_rtc::log::error("[WhyConUpdater] Cannot see {} marker", env_);
   }
   if(!visible)
   {
@@ -70,7 +70,9 @@ bool WhyConUpdater::updateLookAt(mc_tasks::LookAtTask & task)
   if(subscriber_.visible(env_))
   {
     task.target(sva::interpolate(subscriber_.X_0_marker(surface_), subscriber_.X_0_marker(env_), 0.5).translation());
+    return true;
   }
+  return false;
 }
 
 } // namespace whycon_plugin

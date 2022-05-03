@@ -10,7 +10,7 @@ WhyconPlugin::WhyconPlugin() : nh_(mc_rtc::ROSBridge::get_node_handle())
 {
   if(!nh_)
   {
-    LOG_ERROR_AND_THROW(std::runtime_error, "[WhyconPlugin] ROS is not available")
+    mc_rtc::log::error_and_throw("[WhyconPlugin] ROS is not available");
   }
 }
 
@@ -48,36 +48,36 @@ void WhyconPlugin::init(mc_control::MCGlobalController & controller, const mc_rt
 
   if(!config.has("camera"))
   {
-    LOG_ERROR_AND_THROW(std::runtime_error, "[WhyconPlugin] No entry named camera in configuration");
+    mc_rtc::log::error_and_throw("[WhyconPlugin] No entry named camera in configuration");
   }
 
   if(!config("camera").has("surface"))
   {
-    LOG_ERROR_AND_THROW(std::runtime_error, "[WhyconPlugin] No entry camera/surface in configuration");
+    mc_rtc::log::error_and_throw("[WhyconPlugin] No entry camera/surface in configuration");
   }
   if(config("camera").has("surface"))
   {
     config("camera")("surface", cameraSurface_);
     if(!ctl.robot().hasSurface(cameraSurface_))
     {
-      LOG_ERROR_AND_THROW(std::runtime_error,
-                          "[WhyconPlugin] No surface named " << cameraSurface_ << " for the camera");
+      mc_rtc::log::error_and_throw("[WhyconPlugin] No surface named {} for the camera", cameraSurface_);
     }
     cameraOffset_ = config("camera")("offset", sva::PTransformd::Identity());
   }
 
-  ctl.gui()->addElement(
-      {"Plugins", "WhyCon"},
-      mc_rtc::gui::ArrayInput("Camera offset RPY [deg]", {"x", "y", "z"},
-                              [this]() -> Eigen::Vector3d {
-                                return mc_rbdyn::rpyFromMat(cameraOffset_.rotation()) * 180 / mc_rtc::constants::PI;
-                              },
-                              [this](const Eigen::Vector3d & offset) {
-                                cameraOffset_.rotation() = mc_rbdyn::rpyToMat(offset * mc_rtc::constants::PI / 180);
-                              }),
-      mc_rtc::gui::ArrayInput("Camera offset translation [m]", {"x", "y", "z"},
-                              [this]() -> const Eigen::Vector3d & { return cameraOffset_.translation(); },
-                              [this](const Eigen::Vector3d & offset) { cameraOffset_.translation() = offset; }));
+  ctl.gui()->addElement({"Plugins", "WhyCon"},
+                        mc_rtc::gui::ArrayInput(
+                            "Camera offset RPY [deg]", {"x", "y", "z"},
+                            [this]() -> Eigen::Vector3d {
+                              return mc_rbdyn::rpyFromMat(cameraOffset_.rotation()) * 180 / mc_rtc::constants::PI;
+                            },
+                            [this](const Eigen::Vector3d & offset) {
+                              cameraOffset_.rotation() = mc_rbdyn::rpyToMat(offset * mc_rtc::constants::PI / 180);
+                            }),
+                        mc_rtc::gui::ArrayInput(
+                            "Camera offset translation [m]", {"x", "y", "z"},
+                            [this]() -> const Eigen::Vector3d & { return cameraOffset_.translation(); },
+                            [this](const Eigen::Vector3d & offset) { cameraOffset_.translation() = offset; }));
 
   spinner_ = std::thread([]() {
     ros::Rate rt(30);
@@ -89,7 +89,7 @@ void WhyconPlugin::init(mc_control::MCGlobalController & controller, const mc_rt
   });
 
   initialized_ = true;
-  LOG_SUCCESS("[Plugin::WhyconPlugin] initialized");
+  mc_rtc::log::success("[Plugin::WhyconPlugin] initialized");
 }
 
 void WhyconPlugin::reset(mc_control::MCGlobalController & controller) {}

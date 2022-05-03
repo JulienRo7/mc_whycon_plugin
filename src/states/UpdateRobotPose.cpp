@@ -41,7 +41,7 @@ void UpdateRobotPose::start(mc_control::fsm::Controller & ctl)
   sva::PTransformd X_0_object = X_object_surfaceOffset.inv() * X_0_robotSurfaceWithOffset;
   auto X_0_prevObject = o.posW();
   o.posW(X_0_object);
-  LOG_INFO("[" << name() << "] Updated object robot " << name_);
+  mc_rtc::log::info("[{}] Updated object robot ", name_);
 
   if(additionalRobots_.size())
   {
@@ -50,7 +50,7 @@ void UpdateRobotPose::start(mc_control::fsm::Controller & ctl)
       auto & updateRobot = ctl.robots().robot(updateRobotName);
       auto X_object_robot = updateRobot.posW() * X_0_prevObject.inv();
       updateRobot.posW(X_object_robot * X_0_object);
-      LOG_INFO("[" << name() << "] Updated additional robot " << updateRobotName);
+      mc_rtc::log::info("[{}] Updated additional robot {}", name(), updateRobotName);
     }
   }
 }

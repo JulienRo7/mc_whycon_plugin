@@ -39,12 +39,11 @@ void MoveUntilTouch::start(mc_control::fsm::Controller & ctl)
   }
   else
   {
-    LOG_ERROR_AND_THROW(std::runtime_error,
-                        "[" << name() << "] relative property only supports [robot, surface, world]");
+    mc_rtc::log::error_and_throw("[{}] relative property only supports [robot, surface, world]", name());
   }
 
   iter_ = 0;
-  LOG_INFO("[" << name() << "] Pressure threshold: " << pressureThreshold_)
+  mc_rtc::log::info("[{}] Pressure threshold: {}", name(), pressureThreshold_);
 
   if(ctl.config()("simulation", false))
   {
@@ -74,7 +73,7 @@ bool MoveUntilTouch::run(mc_control::fsm::Controller & ctl)
     iter_++;
     if(iter_ >= 5)
     {
-      LOG_INFO("[" << name() << "] Pressure threhsold detected")
+      mc_rtc::log::info("[{}] Pressure threhsold detected", name());
       done();
       output("OK");
       return true;
@@ -89,7 +88,7 @@ bool MoveUntilTouch::run(mc_control::fsm::Controller & ctl)
   double distance = X_target_surface.translation().dot(direction_);
   if(distance > distanceThreshold_)
   {
-    LOG_INFO("[" << name() << "] Distance threshold detected")
+    mc_rtc::log::info("[{}] Distance threshold detected", name());
     done();
     output("OK");
     return true;

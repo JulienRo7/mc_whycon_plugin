@@ -20,7 +20,7 @@ VISPSubscriber::VISPSubscriber(Controller & ctl, const mc_rtc::Configuration & c
 {
   if(!nh_)
   {
-    LOG_ERROR_AND_THROW(std::runtime_error, "[VISPSubscriber] ROS is not available")
+    mc_rtc::log::error_and_throw("[VISPSubscriber] ROS is not available");
   }
   bool simulation = config("simulation");
   auto methodConf = config("visp");
@@ -145,7 +145,7 @@ const sva::PTransformd & VISPSubscriber::X_0_object(const std::string & object) 
 
 void VISPSubscriber::newObject(const std::string & name)
 {
-  LOG_INFO("[VISPSubscriber] New object: " << name)
+  mc_rtc::log::info("[VISPSubscriber] New object: {}", name);
   ctl_.logger().addLogEntry("VISPObjects_" + name,
                             [this, name]() -> const sva::PTransformd & { return objects_.at(name).pos; });
   ctl_.logger().addLogEntry("VISPObjects_" + name + "_World",
@@ -155,14 +155,15 @@ void VISPSubscriber::newObject(const std::string & name)
   {
     return;
   }
-  gui->addElement({"VISP", "Objects"}, mc_rtc::gui::Transform(name, [this, name]() { return objects_.at(name).posW; },
-                                                              [this, name](const sva::PTransformd & pt) {
-                                                                auto & o = objects_.at(name);
-                                                                if(o.robot == "world")
-                                                                {
-                                                                  o.posWorld = pt;
-                                                                }
-                                                              }));
+  gui->addElement({"VISP", "Objects"}, mc_rtc::gui::Transform(
+                                           name, [this, name]() { return objects_.at(name).posW; },
+                                           [this, name](const sva::PTransformd & pt) {
+                                             auto & o = objects_.at(name);
+                                             if(o.robot == "world")
+                                             {
+                                               o.posWorld = pt;
+                                             }
+                                           }));
 }
 
 } // namespace vision

@@ -4,11 +4,6 @@
 namespace whycon_plugin
 {
 
-void MoveUntilTouch::configure(const mc_rtc::Configuration & config)
-{
-  config_.load(config);
-}
-
 void MoveUntilTouch::start(mc_control::fsm::Controller & ctl)
 {
   config_("direction", direction_);

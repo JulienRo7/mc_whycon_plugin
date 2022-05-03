@@ -23,8 +23,6 @@ struct Controller;
 struct UpdateRobotPose : mc_control::fsm::State
 {
 
-  void configure(const mc_rtc::Configuration & config) override;
-
   void start(mc_control::fsm::Controller & ctl) override;
 
   bool run(mc_control::fsm::Controller & ctl) override;
@@ -32,7 +30,6 @@ struct UpdateRobotPose : mc_control::fsm::State
   void teardown(mc_control::fsm::Controller & ctl) override;
 
 private:
-  mc_rtc::Configuration config_;
   /* object name */
   std::string name_;
   /* origin frame */

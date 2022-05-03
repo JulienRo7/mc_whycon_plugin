@@ -10,11 +10,6 @@
 namespace whycon_plugin
 {
 
-void ApproachVisualServoing::configure(const mc_rtc::Configuration & config)
-{
-  config_.load(config);
-}
-
 sva::PTransformd ApproachVisualServoing::robotMarkerToFrameOffset(const mc_control::fsm::Controller & ctl) const
 {
   const auto & observer = static_cast<const WhyConSubscriber &>(*subscriber_);

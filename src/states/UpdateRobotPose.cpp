@@ -3,11 +3,6 @@
 #include <mc_rbdyn/rpy_utils.h>
 #include <mc_rtc/ConfigurationHelpers.h>
 
-void UpdateRobotPose::configure(const mc_rtc::Configuration & config)
-{
-  config_.load(config);
-}
-
 void UpdateRobotPose::start(mc_control::fsm::Controller & ctl)
 {
   if(config_.has("object"))

@@ -13,14 +13,11 @@ struct MoveUntilTouch : mc_control::fsm::State
 {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  void configure(const mc_rtc::Configuration & config) override;
   void start(mc_control::fsm::Controller & ctl) override;
   bool run(mc_control::fsm::Controller & ctl) override;
   void teardown(mc_control::fsm::Controller & ctl) override;
 
 private:
-  /** Configuration data */
-  mc_rtc::Configuration config_;
   Eigen::Vector3d direction_ = Eigen::Vector3d{0, 0, 1};
   Eigen::Vector3d worldDirection_ = Eigen::Vector3d{0, 0, 1};
   bool directionIsLocal_ = true;

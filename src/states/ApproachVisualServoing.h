@@ -19,8 +19,6 @@ struct ApproachVisualServoing : mc_control::fsm::State
 {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  void configure(const mc_rtc::Configuration & config) override;
-
   void start(mc_control::fsm::Controller & ctl) override;
 
   bool run(mc_control::fsm::Controller & ctl) override;
@@ -47,8 +45,6 @@ private:
   void enableVisualServoing(mc_control::fsm::Controller & ctl);
 
 private:
-  /** Configuration of the state, can be used to retrieve method specific configuration */
-  mc_rtc::Configuration config_;
   /** Estimation of the bracket position obtained from the vision system */
   sva::PTransformd X_0_bracket_;
   std::string robotFrame_;

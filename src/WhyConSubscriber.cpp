@@ -27,8 +27,8 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
     std::string relative = markers(k)("relative", std::string(""));
     sva::PTransformd pos = markers(k)("pos", sva::PTransformd::Identity());
     lshapes_[k].robot = robotName;
-    lshapes_[k].surface = relative;
-    lshapes_[k].surfaceOffset = pos;
+    lshapes_[k].frame = relative;
+    lshapes_[k].frameOffset = pos;
   }
 
   if(simulation)
@@ -36,10 +36,10 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
     for(auto k : markers.keys())
     {
       markerUpdates_[k] = [this](const mc_control::MCController & ctl, LShape & shape) {
-        auto & robot = ctl.robots().robot(shape.robot);
+        auto & robot = ctl.robot(shape.robot);
         auto X_camera_0 = X_0_camera.inv();
-        auto X_relative_marker = shape.surfaceOffset;
-        auto X_0_marker = X_relative_marker * robot.surfacePose(shape.surface);
+        auto X_relative_marker = shape.frameOffset;
+        auto X_0_marker = X_relative_marker * robot.frame(shape.frame).position();
         shape.update(X_0_marker * X_camera_0, X_0_camera);
       };
       newMarker(k);

@@ -35,18 +35,18 @@ private:
   mc_rtc::Configuration config_;
   /* object name */
   std::string name_;
-  /* origin surface */
-  std::string surface_;
-  /* offset from origin surface */
-  sva::PTransformd surfaceOffset_ = sva::PTransformd::Identity();
+  /* origin frame */
+  std::string frame_;
+  /* offset from origin frame */
+  sva::PTransformd frameOffset_ = sva::PTransformd::Identity();
 
   /* robot name */
   std::string robotName_;
   /* whether to use the real robot or control robot */
   bool useReal_ = false;
-  /* origin surface on robot */
-  std::string robotSurface_;
-  /* offset wrt to robot origin surface */
+  /* origin frame on robot */
+  std::string robotFrame_;
+  /* offset wrt to robot origin frame */
   sva::PTransformd robotSurfaceOffset_ = sva::PTransformd::Identity();
 
   /* Whether we should also update additional robots (typically contacts) */

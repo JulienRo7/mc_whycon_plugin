@@ -28,13 +28,13 @@ struct ApproachVisualServoing : mc_control::fsm::State
   void teardown(mc_control::fsm::Controller & ctl) override;
 
 private:
-  sva::PTransformd robotMarkerToSurfaceOffset(const mc_control::fsm::Controller & ctl) const;
+  sva::PTransformd robotMarkerToFrameOffset(const mc_control::fsm::Controller & ctl) const;
 
   // Visual servoing target:
   // First compute the relative transform between the target marker and gripper
-  // marker so that the robot surface is at the target surface (+offset) at the
+  // marker so that the robot frame is at the target frame (+offset) at the
   // end of the PBVS task convergence
-  sva::PTransformd targetMarkerToSurfaceOffset(const mc_control::fsm::Controller & ctl) const;
+  sva::PTransformd targetMarkerToFrameOffset(const mc_control::fsm::Controller & ctl) const;
 
   bool updatePBVSTask(mc_control::fsm::Controller & ctl);
 
@@ -51,13 +51,13 @@ private:
   mc_rtc::Configuration config_;
   /** Estimation of the bracket position obtained from the vision system */
   sva::PTransformd X_0_bracket_;
-  std::string robotSurface_;
-  std::string targetSurface_;
-  sva::PTransformd targetSurfaceOffset_ = sva::PTransformd::Identity();
+  std::string robotFrame_;
+  std::string targetFrame_;
+  sva::PTransformd targetFrameOffset_ = sva::PTransformd::Identity();
   std::string robotMarkerName_;
   std::string targetMarkerName_;
 
-  /* Offset relative to the target surface where the
+  /* Offset relative to the target frame where the
    * visual servoing task is to drive the robot */
   sva::PTransformd targetOffset_ = sva::PTransformd::Identity();
 

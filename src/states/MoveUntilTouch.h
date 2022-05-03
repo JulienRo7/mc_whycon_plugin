@@ -7,7 +7,7 @@
 namespace whycon_plugin
 {
 
-/** Move a surface in a given (world or local) direction at a given speed until
+/** Move a frame in a given (world or local) direction at a given speed until
  * a force threhsold is met or a distance threhshold is reached */
 struct MoveUntilTouch : mc_control::fsm::State
 {

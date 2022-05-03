@@ -51,16 +51,16 @@ void WhyconPlugin::init(mc_control::MCGlobalController & controller, const mc_rt
     mc_rtc::log::error_and_throw("[WhyconPlugin] No entry named camera in configuration");
   }
 
-  if(!config("camera").has("surface"))
+  if(!config("camera").has("frame"))
   {
-    mc_rtc::log::error_and_throw("[WhyconPlugin] No entry camera/surface in configuration");
+    mc_rtc::log::error_and_throw("[WhyconPlugin] No entry camera/frame in configuration");
   }
-  if(config("camera").has("surface"))
+  else
   {
-    config("camera")("surface", cameraSurface_);
-    if(!ctl.robot().hasSurface(cameraSurface_))
+    config("camera")("frame", cameraFrame_);
+    if(!ctl.robot().hasFrame(cameraFrame_))
     {
-      mc_rtc::log::error_and_throw("[WhyconPlugin] No surface named {} for the camera", cameraSurface_);
+      mc_rtc::log::error_and_throw("[WhyconPlugin] No frame named {} for the camera", cameraFrame_);
     }
     cameraOffset_ = config("camera")("offset", sva::PTransformd::Identity());
   }
@@ -99,7 +99,7 @@ void WhyconPlugin::before(mc_control::MCGlobalController & controller)
   if(!initialized_) return;
   // Get Camera position
   auto & ctl = controller.controller();
-  auto X_0_camera = cameraOffset_ * ctl.robot().surfacePose("TopCameraRGB");
+  auto X_0_camera = cameraOffset_ * ctl.robot().frame("TopCameraRGB").position();
   whyconSubscriber_->cameraPose(X_0_camera);
   whyconSubscriber_->tick(controller.controller().timeStep);
 }

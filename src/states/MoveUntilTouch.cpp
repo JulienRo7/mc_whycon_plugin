@@ -20,11 +20,11 @@ void MoveUntilTouch::start(mc_control::fsm::Controller & ctl)
 
   task_ = mc_tasks::MetaTaskLoader::load<mc_tasks::SurfaceTransformTask>(ctl.solver(), config_("task"));
   ctl.solver().addTask(task_);
-  pressureZero_ = ctl.robot().surfaceWrench(task_->surface()).force();
+  pressureZero_ = ctl.robot().frame(task_->surface()).wrench().force();
   auto relative = config_("relative", std::string("robot"));
   if(relative == "robot")
   {
-    positionZero_ = ctl.robot().surfacePose(task_->surface());
+    positionZero_ = ctl.robot().frame(task_->surface()).position();
     worldDirection_ = positionZero_.rotation().inverse() * direction_;
   }
   else if(relative == "target")
@@ -39,7 +39,7 @@ void MoveUntilTouch::start(mc_control::fsm::Controller & ctl)
   }
   else
   {
-    mc_rtc::log::error_and_throw("[{}] relative property only supports [robot, surface, world]", name());
+    mc_rtc::log::error_and_throw("[{}] relative property only supports [robot, frame, world]", name());
   }
 
   iter_ = 0;
@@ -67,7 +67,7 @@ bool MoveUntilTouch::run(mc_control::fsm::Controller & ctl)
     return true;
   }
 
-  Eigen::Vector3d pressure = ctl.robot().surfaceWrench(task_->surface()).force();
+  Eigen::Vector3d pressure = ctl.robot().frame(task_->surface()).wrench().force();
   if((pressure - pressureZero_).norm() > pressureThreshold_)
   {
     iter_++;
@@ -84,8 +84,8 @@ bool MoveUntilTouch::run(mc_control::fsm::Controller & ctl)
     iter_ = 0;
   }
   // Distance projected along direction
-  sva::PTransformd X_target_surface = ctl.robot().surfacePose(task_->surface()) * positionZero_.inv();
-  double distance = X_target_surface.translation().dot(direction_);
+  sva::PTransformd X_target_frame = ctl.robot().frame(task_->surface()).position() * positionZero_.inv();
+  double distance = X_target_frame.translation().dot(direction_);
   if(distance > distanceThreshold_)
   {
     mc_rtc::log::info("[{}] Distance threshold detected", name());

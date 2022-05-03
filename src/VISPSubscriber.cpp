@@ -63,18 +63,21 @@ VISPSubscriber::VISPSubscriber(Controller & ctl, const mc_rtc::Configuration & c
           {
             X_0_object = o.second.posWorld;
           }
-          else if(ctl_.robots().robot(o.second.robot).hasSurface(o.second.tf))
-          {
-            X_0_object =
-                ctl_.robots().robot(o.second.robot).surface(o.second.tf).X_0_s(ctl_.robots().robot(o.second.robot));
-          }
           else
           {
-            X_0_object = ctl_.robots().robot(o.second.robot).bodyPosW(o.second.tf);
-            if(o.second.yawOnly)
+            if(ctl_.robot(o.second.robot).hasFrame(o.second.tf))
             {
-              auto rpy = mc_rbdyn::rpyFromMat(X_0_object.rotation());
-              X_0_object.rotation() = mc_rbdyn::rpyToMat(0, 0, rpy.z());
+              X_0_object = ctl_.robot(o.second.robot).frame(o.second.tf).position();
+              if(o.second.yawOnly)
+              {
+                auto rpy = mc_rbdyn::rpyFromMat(X_0_object.rotation());
+                X_0_object.rotation() = mc_rbdyn::rpyToMat(0, 0, rpy.z());
+              }
+            }
+            else
+            {
+              mc_rtc::log::error_and_throw("[VISPSubscriber] No frame named {} in robot {}", o.second.tf,
+                                           o.second.robot);
             }
           }
           o.second.update(X_0_object * X_camera_0, X_camera_0.inv());

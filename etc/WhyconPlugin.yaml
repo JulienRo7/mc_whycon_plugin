@@ -1,6 +1,6 @@
 camera:
-  surface: TopCameraRGB
-  # Offset from the parent body to the camera
+  frame: TopCameraRGB
+  # Offset from the parent frame to the camera
   offset:
     translation: [0, 0, 0]
     rotation: [0, 0, -1.57]

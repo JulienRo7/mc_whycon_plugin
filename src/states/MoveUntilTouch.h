@@ -2,7 +2,7 @@
 
 #include <mc_control/fsm/Controller.h>
 #include <mc_control/fsm/State.h>
-#include <mc_tasks/SurfaceTransformTask.h>
+#include <mc_tasks/TransformTask.h>
 
 namespace whycon_plugin
 {
@@ -28,7 +28,7 @@ private:
   double pressureThreshold_ = 15;
   double distanceThreshold_ = 0.1;
   /** State logic */
-  std::shared_ptr<mc_tasks::SurfaceTransformTask> task_;
+  std::shared_ptr<mc_tasks::TransformTask> task_ = nullptr;
   Eigen::Vector3d pressureZero_;
   sva::PTransformd positionZero_;
   unsigned int iter_ = 0;

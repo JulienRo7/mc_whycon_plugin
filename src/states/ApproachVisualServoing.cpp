@@ -19,7 +19,7 @@ sva::PTransformd ApproachVisualServoing::robotMarkerToFrameOffset(const mc_contr
 {
   const auto & observer = static_cast<const WhyConSubscriber &>(*subscriber_);
   const auto & robotMarker = observer.lshape(robotMarkerName_);
-  auto & robot = ctl.robots().robot(robotMarker.robot);
+  auto & robot = ctl.robot(robotMarker.robot);
   auto X_0_robotFrame = robot.frame(robotFrame_).position();
   auto X_0_robotMarker = robotMarker.frameOffset * robot.frame(robotMarker.frame).position();
   return X_0_robotFrame * X_0_robotMarker.inv();
@@ -29,7 +29,7 @@ sva::PTransformd ApproachVisualServoing::targetMarkerToFrameOffset(const mc_cont
 {
   const auto & observer = static_cast<const WhyConSubscriber &>(*subscriber_);
   const auto & targetMarker = observer.lshape(targetMarkerName_);
-  auto & targetRobot = ctl.robots().robot(targetMarker.robot);
+  auto & targetRobot = ctl.robot(targetMarker.robot);
 
   // Visual servoing target:
   // First compute the relative transform between the target marker and gripper
@@ -47,8 +47,8 @@ void ApproachVisualServoing::updateLookAt(const mc_control::fsm::Controller & ct
   const auto & observer = static_cast<const WhyConSubscriber &>(*subscriber_);
   const auto & robotMarker = observer.lshape(robotMarkerName_);
   const auto & targetMarker = observer.lshape(targetMarkerName_);
-  auto & robot = ctl.robots().robot(robotMarker.robot);
-  auto & targetRobot = ctl.robots().robot(targetMarker.robot);
+  auto & robot = ctl.robot(robotMarker.robot);
+  auto & targetRobot = ctl.robot(targetMarker.robot);
   lookAt_->target(sva::interpolate(targetMarker.frameOffset * targetRobot.frame(targetMarker.frame).position(),
                                    robotMarker.frameOffset * robot.frame(robotMarker.frame).position(), 0.5)
                       .translation());
@@ -57,17 +57,18 @@ void ApproachVisualServoing::updateLookAt(const mc_control::fsm::Controller & ct
 void ApproachVisualServoing::setBoundedSpeed(mc_control::fsm::Controller & ctl, double speed)
 {
   const auto & robotMarker = subscriber_->lshape(robotMarkerName_);
-  auto & robot = ctl.robots().robot(robotMarker.robot);
+  auto & robot = ctl.robot(robotMarker.robot);
+  // XXX (mc_rtc): shouldn't RobotFrame::parent() return a RobotFrame instead of a Frame if the parent was a RobotFrame?
+  const auto & parentFrame = *std::static_pointer_cast<mc_rbdyn::RobotFrame>(robot.frame(robotFrame_).parent());
 
   maxSpeed_ = speed;
   if(constr_)
   {
-    constr_->removeBoundedSpeed(ctl.solver(), robot.frame(robotFrame_).parent()->name());
+    constr_->removeBoundedSpeed(ctl.solver(), parentFrame);
   }
   Eigen::Vector6d spd;
   spd << M_PI * maxSpeed_, M_PI * maxSpeed_, M_PI * maxSpeed_, maxSpeed_, maxSpeed_, maxSpeed_;
-  constr_->addBoundedSpeed(ctl.solver(), robot.frame(robotFrame_).parent()->name(),
-                           robot.frame(robotFrame_).X_p_f().translation(), Eigen::MatrixXd::Identity(6, 6), -spd, spd);
+  constr_->addBoundedSpeed(ctl.solver(), parentFrame, Eigen::MatrixXd::Identity(6, 6), -spd, spd);
   mc_rtc::log::info("[{}] Bounded speed set to {}", name(), spd.transpose());
 }
 
@@ -92,15 +93,17 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
 
   const auto & targetMarker = observer.lshape(targetMarkerName_);
   const auto & robotMarker = observer.lshape(robotMarkerName_);
-  auto & targetRobot = ctl.robots().robot(targetMarker.robot);
-  auto & robot = ctl.robots().robot(robotMarker.robot);
+  auto & targetRobot = ctl.robot(targetMarker.robot);
+  auto & robot = ctl.robot(robotMarker.robot);
 
   /** Create the VS task, will add later */
   pbvsConf("stiffness", stiffness_);
   pbvsConf("maxStiffness", maxStiffness_);
   pbvsTask_ = std::make_shared<mc_tasks::PositionBasedVisServoTask>(
-      robotFrame_, sva::PTransformd::Identity() /* No initial error, will be set by the updater later */, ctl.robots(),
-      robot.robotIndex(), stiffness_, pbvsConf("weight", 500.));
+      ctl.robot().frame(robotFrame_),
+      sva::PTransformd::Identity(), /* No initial error, will be set by the updater later */
+      stiffness_, pbvsConf("weight", 500.));
+
   if(pbvsConf.has("joints"))
   {
     pbvsTask_->selectActiveJoints(pbvsConf("joints"));
@@ -156,9 +159,9 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
       oriWp.push_back(std::make_pair(wp.first, ori.rotation()));
     }
   }
-  task_ = std::make_shared<mc_tasks::BSplineTrajectoryTask>(
-      ctl.solver().robots(), ctl.solver().robots().robot(robotMarker.robot).robotIndex(), robotFrame_,
-      approachConf("duration"), approachConf("stiffness"), approachConf("weight"), X_0_bracket_, waypoints, oriWp);
+  task_ = std::make_shared<mc_tasks::BSplineTrajectoryTask>(ctl.robot(robotMarker.robot).frame(robotFrame_),
+                                                            approachConf("duration"), approachConf("stiffness"),
+                                                            approachConf("weight"), X_0_bracket_, waypoints, oriWp);
   const auto displaySamples = approachConf("displaySamples", task_->displaySamples());
   task_->displaySamples(displaySamples);
   task_->pause(approachConf("paused", false));
@@ -178,10 +181,9 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
   if(config_.has("lookAt"))
   {
     const auto & lookConf = config_("lookAt");
-    lookAt_ = std::make_shared<mc_tasks::LookAtTask>(
-        lookConf("body"), lookConf("bodyVector"), ctl.robots(),
-        ctl.robots().robot(lookConf("robot", ctl.robots().robot().name())).robotIndex(), lookConf("stiffness", 2.),
-        lookConf("weight", 100.));
+    auto & robot = ctl.robot(lookConf("robot", ctl.robot().name()));
+    lookAt_ = std::make_shared<mc_tasks::LookAtTask>(robot.frame(lookConf("body")), lookConf("bodyVector"),
+                                                     lookConf("stiffness", 2.), lookConf("weight", 100.));
     if(lookConf.has("joints"))
     {
       lookAt_->selectActiveJoints(lookConf("joints"));

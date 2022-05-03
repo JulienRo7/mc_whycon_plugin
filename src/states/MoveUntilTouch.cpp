@@ -18,7 +18,7 @@ void MoveUntilTouch::start(mc_control::fsm::Controller & ctl)
   config_("pressureThreshold", pressureThreshold_);
   direction_.normalize();
 
-  task_ = mc_tasks::MetaTaskLoader::load<mc_tasks::SurfaceTransformTask>(ctl.solver(), config_("task"));
+  task_ = mc_tasks::MetaTaskLoader::load<mc_tasks::TransformTask>(ctl.solver(), config_("task"));
   ctl.solver().addTask(task_);
   pressureZero_ = ctl.robot().frame(task_->surface()).wrench().force();
   auto relative = config_("relative", std::string("robot"));

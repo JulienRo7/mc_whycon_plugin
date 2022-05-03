@@ -47,7 +47,7 @@ private:
   /* origin frame on robot */
   std::string robotFrame_;
   /* offset wrt to robot origin frame */
-  sva::PTransformd robotSurfaceOffset_ = sva::PTransformd::Identity();
+  sva::PTransformd robotFrameOffset_ = sva::PTransformd::Identity();
 
   /* Whether we should also update additional robots (typically contacts) */
   std::vector<std::string> additionalRobots_;

@@ -396,7 +396,7 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
   }
   else if(useVisualServoing_ && !vsDone_)
   {
-    // updateLookAt(ctl);
+    updateLookAt(ctl);
     if(visible_ && pbvsTask_->eval().tail(3).norm() < evalTh_ && pbvsTask_->speed().tail(3).norm() < speedTh_
        && iter_++ > 10)
     {

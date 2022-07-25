@@ -39,7 +39,7 @@ struct VISPObject
   sva::PTransformd posWorld;
   /** Store simulation offset */
   sva::PTransformd offset;
-  /** Only care about the rotation about Z for the reference simulation surface */
+  /** Only care about the rotation about Z for the reference simulation frame */
   bool yawOnly = false;
 
   /** True if the object is visible */

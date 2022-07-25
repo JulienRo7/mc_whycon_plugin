@@ -12,16 +12,16 @@ struct WhyConUpdater : public TaskUpdater
   /** Create a task updater
    *
    * \param subscriber WhyCon subscriber that will provide the data
-   * \param surface Name of the surface marker
+   * \param frame Name of the frame marker
    * \param env Name of the environment marker
    * \param envOffset Offset from the environment marker to the target object
-   * \param surfaceOffset Offset from the surface marker to the surface frame
+   * \param frameOffset Offset from the frame marker to the frame frame
    */
   WhyConUpdater(const WhyConSubscriber & subscriber,
-                const std::string & surface,
+                const std::string & frame,
                 const std::string & env,
                 const sva::PTransformd & envOffset = sva::PTransformd::Identity(),
-                const sva::PTransformd & surfaceOffset = sva::PTransformd::Identity()
+                const sva::PTransformd & frameOffset = sva::PTransformd::Identity()
                 );
 
   /** Update a PBVS task based on the information provided by the WhyCon subscriber */
@@ -41,22 +41,22 @@ struct WhyConUpdater : public TaskUpdater
     return envOffset_;
   }
 
-  inline void surfaceOffset(const sva::PTransformd & surfaceOffset)
+  inline void frameOffset(const sva::PTransformd & frameOffset)
   {
-    surfaceOffset_ = surfaceOffset;
+    frameOffset_ = frameOffset;
   }
 
-  inline const sva::PTransformd & surfaceOffset() const
+  inline const sva::PTransformd & frameOffset() const
   {
-    return surfaceOffset_;
+    return frameOffset_;
   }
 
 private:
   const WhyConSubscriber & subscriber_;
-  std::string surface_;
+  std::string frame_;
   std::string env_;
   sva::PTransformd envOffset_;
-  sva::PTransformd surfaceOffset_;
+  sva::PTransformd frameOffset_;
 };
 
 } // namespace whycon_plugin

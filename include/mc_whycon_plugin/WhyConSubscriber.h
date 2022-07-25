@@ -51,7 +51,7 @@ struct WhyConSubscriber : public VisionSubscriber
     }
     else
     {
-      LOG_ERROR_AND_THROW(std::runtime_error, "[WhyconPlugin] No lshape named " << name);
+      mc_rtc::log::error_and_throw("[WhyconPlugin] No lshape named \"{}\"", name);
     }
   }
 

@@ -10,35 +10,30 @@
 namespace whycon_plugin
 {
 
-void ApproachVisualServoing::configure(const mc_rtc::Configuration & config)
-{
-  config_.load(config);
-}
-
-sva::PTransformd ApproachVisualServoing::robotMarkerToSurfaceOffset(const mc_control::fsm::Controller & ctl) const
+sva::PTransformd ApproachVisualServoing::robotMarkerToFrameOffset(const mc_control::fsm::Controller & ctl) const
 {
   const auto & observer = static_cast<const WhyConSubscriber &>(*subscriber_);
   const auto & robotMarker = observer.lshape(robotMarkerName_);
-  auto & robot = ctl.robots().robot(robotMarker.robot);
-  auto X_0_robotSurface = robot.surfacePose(robotSurface_);
-  auto X_0_robotMarker = robotMarker.surfaceOffset * robot.surfacePose(robotMarker.surface);
-  return X_0_robotSurface * X_0_robotMarker.inv();
+  auto & robot = ctl.robot(robotMarker.robot);
+  auto X_0_robotFrame = robot.frame(robotFrame_).position();
+  auto X_0_robotMarker = robotMarker.frameOffset * robot.frame(robotMarker.frame).position();
+  return X_0_robotFrame * X_0_robotMarker.inv();
 }
 
-sva::PTransformd ApproachVisualServoing::targetMarkerToSurfaceOffset(const mc_control::fsm::Controller & ctl) const
+sva::PTransformd ApproachVisualServoing::targetMarkerToFrameOffset(const mc_control::fsm::Controller & ctl) const
 {
   const auto & observer = static_cast<const WhyConSubscriber &>(*subscriber_);
   const auto & targetMarker = observer.lshape(targetMarkerName_);
-  auto & targetRobot = ctl.robots().robot(targetMarker.robot);
+  auto & targetRobot = ctl.robot(targetMarker.robot);
 
   // Visual servoing target:
   // First compute the relative transform between the target marker and gripper
-  // marker so that the robot surface is at the target surface (+offset) at the
+  // marker so that the robot frame is at the target frame (+offset) at the
   // end of the PBVS task convergence
-  auto X_0_targetMarker = targetMarker.surfaceOffset * targetRobot.surfacePose(targetMarker.surface);
-  auto X_targetMarker_targetSurface_ = targetRobot.surfacePose(targetSurface_) * X_0_targetMarker.inv();
-  auto X_targetSurface_target = targetOffset_ * targetSurfaceOffset_;
-  auto X_targetMarker_target = X_targetSurface_target * X_targetMarker_targetSurface_;
+  auto X_0_targetMarker = targetMarker.frameOffset * targetRobot.frame(targetMarker.frame).position();
+  auto X_targetMarker_targetFrame_ = targetRobot.frame(targetFrame_).position() * X_0_targetMarker.inv();
+  auto X_targetFrame_target = targetOffset_ * targetFrameOffset_;
+  auto X_targetMarker_target = X_targetFrame_target * X_targetMarker_targetFrame_;
   return X_targetMarker_target;
 }
 
@@ -47,29 +42,29 @@ void ApproachVisualServoing::updateLookAt(const mc_control::fsm::Controller & ct
   const auto & observer = static_cast<const WhyConSubscriber &>(*subscriber_);
   const auto & robotMarker = observer.lshape(robotMarkerName_);
   const auto & targetMarker = observer.lshape(targetMarkerName_);
-  auto & robot = ctl.robots().robot(robotMarker.robot);
-  auto & targetRobot = ctl.robots().robot(targetMarker.robot);
-  lookAt_->target(sva::interpolate(targetMarker.surfaceOffset * targetRobot.surfacePose(targetMarker.surface),
-                                   robotMarker.surfaceOffset * robot.surfacePose(robotMarker.surface), 0.5)
+  auto & robot = ctl.robot(robotMarker.robot);
+  auto & targetRobot = ctl.robot(targetMarker.robot);
+  lookAt_->target(sva::interpolate(targetMarker.frameOffset * targetRobot.frame(targetMarker.frame).position(),
+                                   robotMarker.frameOffset * robot.frame(robotMarker.frame).position(), 0.5)
                       .translation());
 }
 
 void ApproachVisualServoing::setBoundedSpeed(mc_control::fsm::Controller & ctl, double speed)
 {
   const auto & robotMarker = subscriber_->lshape(robotMarkerName_);
-  auto & robot = ctl.robots().robot(robotMarker.robot);
+  auto & robot = ctl.robot(robotMarker.robot);
+  // XXX (mc_rtc): shouldn't RobotFrame::parent() return a RobotFrame instead of a Frame if the parent was a RobotFrame?
+  const auto & parentFrame = *std::static_pointer_cast<mc_rbdyn::RobotFrame>(robot.frame(robotFrame_).parent());
 
   maxSpeed_ = speed;
   if(constr_)
   {
-    constr_->removeBoundedSpeed(ctl.solver(), robot.surface(robotSurface_).bodyName());
+    constr_->removeBoundedSpeed(ctl.solver(), parentFrame);
   }
   Eigen::Vector6d spd;
   spd << M_PI * maxSpeed_, M_PI * maxSpeed_, M_PI * maxSpeed_, maxSpeed_, maxSpeed_, maxSpeed_;
-  constr_->addBoundedSpeed(ctl.solver(), robot.surface(robotSurface_).bodyName(),
-                           robot.surface(robotSurface_).X_b_s().translation(), Eigen::MatrixXd::Identity(6, 6), -spd,
-                           spd);
-  LOG_INFO("[ApproachVisualServoing] Bounded speed set to " << spd.transpose());
+  constr_->addBoundedSpeed(ctl.solver(), parentFrame, Eigen::MatrixXd::Identity(6, 6), -spd, spd);
+  mc_rtc::log::info("[{}] Bounded speed set to {}", name(), spd.transpose());
 }
 
 void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
@@ -86,22 +81,24 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
   const auto & approachConf = config_("approach");
   approachConf("use", useApproach_);
   robotMarkerName_ = static_cast<std::string>(config_("robot")("marker"));
-  robotSurface_ = static_cast<std::string>(config_("robot")("surface"));
+  robotFrame_ = static_cast<std::string>(config_("robot")("frame"));
   targetMarkerName_ = static_cast<std::string>(config_("target")("marker"));
-  targetSurface_ = static_cast<std::string>(config_("target")("surface"));
-  config_("target")("surfaceOffset", targetSurfaceOffset_);
+  targetFrame_ = static_cast<std::string>(config_("target")("frame"));
+  config_("target")("frameOffset", targetFrameOffset_);
 
   const auto & targetMarker = observer.lshape(targetMarkerName_);
   const auto & robotMarker = observer.lshape(robotMarkerName_);
-  auto & targetRobot = ctl.robots().robot(targetMarker.robot);
-  auto & robot = ctl.robots().robot(robotMarker.robot);
+  auto & targetRobot = ctl.robot(targetMarker.robot);
+  auto & robot = ctl.robot(robotMarker.robot);
 
   /** Create the VS task, will add later */
   pbvsConf("stiffness", stiffness_);
   pbvsConf("maxStiffness", maxStiffness_);
   pbvsTask_ = std::make_shared<mc_tasks::PositionBasedVisServoTask>(
-      robotSurface_, sva::PTransformd::Identity() /* No initial error, will be set by the updater later */,
-      ctl.robots(), robot.robotIndex(), stiffness_, pbvsConf("weight", 500.));
+      ctl.robot().frame(robotFrame_),
+      sva::PTransformd::Identity(), /* No initial error, will be set by the updater later */
+      stiffness_, pbvsConf("weight", 500.));
+
   if(pbvsConf.has("joints"))
   {
     pbvsTask_->selectActiveJoints(pbvsConf("joints"));
@@ -116,28 +113,28 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
   pbvsConf("maxSpeed", maxSpeedDesired_);
   maxSpeed_ = maxSpeedDesired_;
 
-  auto targetOffset = targetMarkerToSurfaceOffset(ctl);
-  auto robotOffset = robotMarkerToSurfaceOffset(ctl);
+  auto targetOffset = targetMarkerToFrameOffset(ctl);
+  auto robotOffset = robotMarkerToFrameOffset(ctl);
 
   /* approach */
   bool useMarker = approachConf("useMarker", false);
   auto approachOffset = approachConf("offset", sva::PTransformd::Identity());
-  auto X_0_markerSurface = targetRobot.surfacePose(targetMarker.surface);
-  auto X_0_targetSurface_ = targetRobot.surfacePose(targetSurface_);
-  auto X_markerSurface_targetSurface_ = X_0_targetSurface_ * X_0_markerSurface.inv();
+  auto X_0_markerFrame = targetRobot.frame(targetMarker.frame).position();
+  auto X_0_targetFrame_ = targetRobot.frame(targetFrame_).position();
+  auto X_markerFrame_targetFrame_ = X_0_targetFrame_ * X_0_markerFrame.inv();
   mc_tasks::BSplineTrajectoryTask::waypoints_t waypoints;
   std::vector<std::pair<double, Eigen::Matrix3d>> oriWp;
   if(useMarker)
   { /* Target relative to the target marker */
     X_0_bracket_ =
-        approachOffset * targetSurfaceOffset_ * X_markerSurface_targetSurface_ * observer.X_0_marker(targetMarkerName_);
+        approachOffset * targetFrameOffset_ * X_markerFrame_targetFrame_ * observer.X_0_marker(targetMarkerName_);
   }
   else
-  { /* Target relative to the target robot's surface */
-    X_0_bracket_ = approachOffset * targetSurfaceOffset_ * X_markerSurface_targetSurface_ * X_0_markerSurface;
+  { /* Target relative to the target robot's frame */
+    X_0_bracket_ = approachOffset * targetFrameOffset_ * X_markerFrame_targetFrame_ * X_0_markerFrame;
   }
   if(approachConf.has("waypoints"))
-  { // Control points offsets defined wrt to the target surface frame
+  { // Control points offsets defined wrt to the target frame frame
     const auto & controlPoints = approachConf("waypoints");
     waypoints.resize(controlPoints.size());
     for(unsigned int i = 0; i < controlPoints.size(); ++i)
@@ -148,7 +145,7 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
     }
   }
   if(approachConf.has("oriWaypoints"))
-  { // orientation waypoints are defined wrt to the target surface frame
+  { // orientation waypoints are defined wrt to the target frame frame
     std::vector<std::pair<double, Eigen::Matrix3d>> oriWaypoints = approachConf("oriWaypoints");
     for(const auto & wp : oriWaypoints)
     {
@@ -157,9 +154,9 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
       oriWp.push_back(std::make_pair(wp.first, ori.rotation()));
     }
   }
-  task_ = std::make_shared<mc_tasks::BSplineTrajectoryTask>(
-      ctl.solver().robots(), ctl.solver().robots().robot(robotMarker.robot).robotIndex(), robotSurface_,
-      approachConf("duration"), approachConf("stiffness"), approachConf("weight"), X_0_bracket_, waypoints, oriWp);
+  task_ = std::make_shared<mc_tasks::BSplineTrajectoryTask>(ctl.robot(robotMarker.robot).frame(robotFrame_),
+                                                            approachConf("duration"), approachConf("stiffness"),
+                                                            approachConf("weight"), X_0_bracket_, waypoints, oriWp);
   const auto displaySamples = approachConf("displaySamples", task_->displaySamples());
   task_->displaySamples(displaySamples);
   task_->pause(approachConf("paused", false));
@@ -179,16 +176,15 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
   if(config_.has("lookAt"))
   {
     const auto & lookConf = config_("lookAt");
-    lookAt_ = std::make_shared<mc_tasks::LookAtTask>(
-        lookConf("body"), lookConf("bodyVector"), ctl.robots(),
-        ctl.robots().robot(lookConf("robot", ctl.robots().robot().name())).robotIndex(), lookConf("stiffness", 2.),
-        lookConf("weight", 100.));
+    auto & robot = ctl.robot(lookConf("robot", ctl.robot().name()));
+    lookAt_ = std::make_shared<mc_tasks::LookAtTask>(robot.frame(lookConf("body")), lookConf("bodyVector"),
+                                                     lookConf("stiffness", 2.), lookConf("weight", 100.));
     if(lookConf.has("joints"))
     {
       lookAt_->selectActiveJoints(lookConf("joints"));
     }
     // Target the expected pose
-    lookAt_->target(X_0_targetSurface_.translation());
+    lookAt_->target(X_0_targetFrame_.translation());
   }
 }
 
@@ -247,8 +243,8 @@ bool ApproachVisualServoing::updatePBVSTask(mc_control::fsm::Controller & ctl)
   // If the marker becomes not visible, disable task
   if(!visible_ && wasVisible_)
   {
-    LOG_WARNING(
-        "[ApproachVisualServoing] Disabling visual servoing updates, will re-enable when the markers become visible");
+    mc_rtc::log::warning("[{}] Disabling visual servoing updates, will re-enable when the markers become visible",
+                         name());
     pbvsTask_->error(sva::PTransformd::Identity());
     setBoundedSpeed(ctl, 0);
     wasVisible_ = false;
@@ -258,30 +254,30 @@ bool ApproachVisualServoing::updatePBVSTask(mc_control::fsm::Controller & ctl)
   // If at last iteration the marker was not visible but now is, re-enable
   if(visible_ && !wasVisible_)
   {
-    LOG_INFO("[ApproachVisualServoing] Re-enabling visual servoing");
+    mc_rtc::log::info("[{}] Re-enabling visual servoing", name());
     setBoundedSpeed(ctl, maxSpeedDesired_);
   }
 
   static bool once = true;
-  auto envOffset = targetMarkerToSurfaceOffset(ctl);
-  auto surfaceOffset = robotMarkerToSurfaceOffset(ctl);
+  auto envOffset = targetMarkerToFrameOffset(ctl);
+  auto frameOffset = robotMarkerToFrameOffset(ctl);
   auto X_camera_target = envOffset * subscriber_->X_camera_marker(targetMarkerName_);
-  auto X_camera_surface = surfaceOffset * subscriber_->X_camera_marker(robotMarkerName_);
-  auto X_t_s = X_camera_surface * X_camera_target.inv();
+  auto X_camera_frame = frameOffset * subscriber_->X_camera_marker(robotMarkerName_);
+  auto X_t_s = X_camera_frame * X_camera_target.inv();
   if(once)
   {
     std::cout << "X_camera_target:\n"
               << "\ttranslation: " << X_camera_target.translation().transpose() << "\n"
               << "\trotation   : "
               << mc_rbdyn::rpyFromMat(X_camera_target.rotation()).transpose() * 180 / mc_rtc::constants::PI << "\n";
-    std::cout << "X_camera_surface:\n"
-              << "\ttranslation: " << X_camera_surface.translation().transpose() << "\n"
+    std::cout << "X_camera_frame:\n"
+              << "\ttranslation: " << X_camera_frame.translation().transpose() << "\n"
               << "\trotation   : "
-              << mc_rbdyn::rpyFromMat(X_camera_surface.rotation()).transpose() * 180 / mc_rtc::constants::PI << "\n";
-    std::cout << "surfaceOffset:\n"
-              << "\ttranslation: " << surfaceOffset.translation().transpose() << "\n"
+              << mc_rbdyn::rpyFromMat(X_camera_frame.rotation()).transpose() * 180 / mc_rtc::constants::PI << "\n";
+    std::cout << "frameOffset:\n"
+              << "\ttranslation: " << frameOffset.translation().transpose() << "\n"
               << "\trotation   : "
-              << mc_rbdyn::rpyFromMat(surfaceOffset.rotation()).transpose() * 180 / mc_rtc::constants::PI << "\n";
+              << mc_rbdyn::rpyFromMat(frameOffset.rotation()).transpose() * 180 / mc_rtc::constants::PI << "\n";
     std::cout << "envOffset:\n"
               << "\ttranslation: " << envOffset.translation().transpose() << "\n"
               << "\trotation   : "
@@ -315,7 +311,7 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
       iter_ = 0;
       // Look halfway between the expected markers
       ctl.solver().addTask(lookAt_);
-      LOG_INFO("completed, update lookat");
+      mc_rtc::log::info("[{}] completed, update lookat", name());
       updateLookAt(ctl);
       if(useVisualServoing_)
       {
@@ -328,64 +324,69 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
         {
           enableVisualServoing(ctl);
         }
-      ctl.gui()->addElement(
-          category_,
-          mc_rtc::gui::Label("Status",
-                             [this]() {
-                               if(vsPaused_)
-                               {
-                                 return "paused";
-                               }
-                               else if(!userEnableVS_)
-                               {
-                                 return "not enabled";
-                               }
-                               else if(userEnableVS_ && !vsDone_)
-                               {
-                                 return "active";
-                               }
-                               else if(userEnableVS_ && vsDone_)
-                               {
-                                 return "converged";
-                               }
-                               return "unknown";
-                             }),
-          mc_rtc::gui::Label("Marker " + robotMarkerName_,
-                             [this]() { return subscriber_->visible(robotMarkerName_) ? "visible" : "not visible"; }),
-          mc_rtc::gui::Label("Marker " + targetMarkerName_,
-                             [this]() { return subscriber_->visible(targetMarkerName_) ? "visible" : "not visible"; }),
-          mc_rtc::gui::Label("Error [m]",
-                             [this]() {
-                               if(pbvsTask_)
-                               {
-                                 return pbvsTask_->eval().tail(3).norm();
-                               }
-                               return 0.;
-                             }),
-          mc_rtc::gui::Button("Pause", [this, &ctl]() { pause(ctl); }),
-          mc_rtc::gui::Button("Resume", [this, &ctl]() { resume(ctl); }),
-          mc_rtc::gui::Label("Stiffness", [this]() { return stiffness_; }),
-          mc_rtc::gui::NumberInput("Max stiffness", [this]() { return maxStiffness_; },
-                                   [this](double s) { maxStiffness_ = std::max(0., s); }),
-          mc_rtc::gui::Label("Actual max speed", [this]() { return maxSpeed_; }),
-          mc_rtc::gui::NumberInput("Max speed", [this]() { return maxSpeedDesired_; },
-                                   [this, &ctl](double s) {
-                                     maxSpeedDesired_ = std::max(0., s);
-                                     setBoundedSpeed(ctl, maxSpeedDesired_);
-                                   }),
-          mc_rtc::gui::NumberInput("Convergence Threshold [m]", [this]() { return evalTh_; },
-                                   [this, &ctl](double s) { evalTh_ = std::max(0., s); }),
-          mc_rtc::gui::ArrayInput("Offset wrt target surface (translation) [m]", {"x", "y", "z"},
-                                  [this]() -> const Eigen::Vector3d & { return targetOffset_.translation(); },
-                                  [this](const Eigen::Vector3d & t) { targetOffset_.translation() = t; }),
-          mc_rtc::gui::ArrayInput("Offset wrt target surface (rotation) [deg]", {"r", "p", "y"},
-                                  [this]() -> Eigen::Vector3d {
-                                    return mc_rbdyn::rpyFromMat(targetOffset_.rotation()) * 180.
-                                           / mc_rtc::constants::PI;
-                                  },
-                                  [this](const Eigen::Vector3d & rpy) {
-                                    targetOffset_.rotation() = mc_rbdyn::rpyToMat(rpy * mc_rtc::constants::PI / 180.);
-                                  }));
+        ctl.gui()->addElement(
+            category_,
+            mc_rtc::gui::Label("Status",
+                               [this]() {
+                                 if(vsPaused_)
+                                 {
+                                   return "paused";
+                                 }
+                                 else if(!userEnableVS_)
+                                 {
+                                   return "not enabled";
+                                 }
+                                 else if(userEnableVS_ && !vsDone_)
+                                 {
+                                   return "active";
+                                 }
+                                 else if(userEnableVS_ && vsDone_)
+                                 {
+                                   return "converged";
+                                 }
+                                 return "unknown";
+                               }),
+            mc_rtc::gui::Label("Marker " + robotMarkerName_,
+                               [this]() { return subscriber_->visible(robotMarkerName_) ? "visible" : "not visible"; }),
+            mc_rtc::gui::Label(
+                "Marker " + targetMarkerName_,
+                [this]() { return subscriber_->visible(targetMarkerName_) ? "visible" : "not visible"; }),
+            mc_rtc::gui::Label("Error [m]",
+                               [this]() {
+                                 if(pbvsTask_)
+                                 {
+                                   return pbvsTask_->eval().tail(3).norm();
+                                 }
+                                 return 0.;
+                               }),
+            mc_rtc::gui::Button("Pause", [this, &ctl]() { pause(ctl); }),
+            mc_rtc::gui::Button("Resume", [this, &ctl]() { resume(ctl); }),
+            mc_rtc::gui::Label("Stiffness", [this]() { return stiffness_; }),
+            mc_rtc::gui::NumberInput(
+                "Max stiffness", [this]() { return maxStiffness_; },
+                [this](double s) { maxStiffness_ = std::max(0., s); }),
+            mc_rtc::gui::Label("Actual max speed", [this]() { return maxSpeed_; }),
+            mc_rtc::gui::NumberInput(
+                "Max speed", [this]() { return maxSpeedDesired_; },
+                [this, &ctl](double s) {
+                  maxSpeedDesired_ = std::max(0., s);
+                  setBoundedSpeed(ctl, maxSpeedDesired_);
+                }),
+            mc_rtc::gui::NumberInput(
+                "Convergence Threshold [m]", [this]() { return evalTh_; },
+                [this, &ctl](double s) { evalTh_ = std::max(0., s); }),
+            mc_rtc::gui::ArrayInput(
+                "Offset wrt target frame (translation) [m]", {"x", "y", "z"},
+                [this]() -> const Eigen::Vector3d & { return targetOffset_.translation(); },
+                [this](const Eigen::Vector3d & t) { targetOffset_.translation() = t; }),
+            mc_rtc::gui::ArrayInput(
+                "Offset wrt target frame (rotation) [deg]", {"r", "p", "y"},
+                [this]() -> Eigen::Vector3d {
+                  return mc_rbdyn::rpyFromMat(targetOffset_.rotation()) * 180. / mc_rtc::constants::PI;
+                },
+                [this](const Eigen::Vector3d & rpy) {
+                  targetOffset_.rotation() = mc_rbdyn::rpyToMat(rpy * mc_rtc::constants::PI / 180.);
+                }));
       }
     }
   }
@@ -395,7 +396,7 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
   }
   else if(useVisualServoing_ && !vsDone_)
   {
-    // updateLookAt(ctl);
+    updateLookAt(ctl);
     if(visible_ && pbvsTask_->eval().tail(3).norm() < evalTh_ && pbvsTask_->speed().tail(3).norm() < speedTh_
        && iter_++ > 10)
     {

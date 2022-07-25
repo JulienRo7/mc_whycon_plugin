@@ -14,7 +14,7 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
 {
   if(!nh_)
   {
-    LOG_ERROR_AND_THROW(std::runtime_error, "[WhyConSubscriber] ROS is not available")
+    mc_rtc::log::error_and_throw("[WhyConSubscriber] ROS is not available");
   }
   bool simulation = ctl.config()("simulation", false);
   auto methodConf = config("whycon");
@@ -27,8 +27,8 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
     std::string relative = markers(k)("relative", std::string(""));
     sva::PTransformd pos = markers(k)("pos", sva::PTransformd::Identity());
     lshapes_[k].robot = robotName;
-    lshapes_[k].surface = relative;
-    lshapes_[k].surfaceOffset = pos;
+    lshapes_[k].frame = relative;
+    lshapes_[k].frameOffset = pos;
   }
 
   if(simulation)
@@ -36,10 +36,10 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
     for(auto k : markers.keys())
     {
       markerUpdates_[k] = [this](const mc_control::MCController & ctl, LShape & shape) {
-        auto & robot = ctl.robots().robot(shape.robot);
+        auto & robot = ctl.robot(shape.robot);
         auto X_camera_0 = X_0_camera.inv();
-        auto X_relative_marker = shape.surfaceOffset;
-        auto X_0_marker = X_relative_marker * robot.surfacePose(shape.surface);
+        auto X_relative_marker = shape.frameOffset;
+        auto X_0_marker = X_relative_marker * robot.frame(shape.frame).position();
         shape.update(X_0_marker * X_camera_0, X_0_camera);
       };
       newMarker(k);
@@ -95,7 +95,7 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
     }
     catch(...)
     {
-      LOG_WARNING("[WhyconPluginPlugin] Could not connect to topic " << topic_ << "(invalid name)");
+      mc_rtc::log::warning("[WhyconPluginPlugin] Could not connect to topic {} (invalid name)", topic_);
       connected_ = false;
     }
   }
@@ -130,7 +130,7 @@ void WhyConSubscriber::tick(double dt)
   {
     if(!connected_)
     {
-      LOG_SUCCESS("[WhyconPluginPlugin] Connected to topic \"" << topic_ << "\"");
+      mc_rtc::log::success("[WhyconPluginPlugin] Connected to topic \"{}\"", topic_);
       connected_ = true;
     }
   }
@@ -138,7 +138,7 @@ void WhyConSubscriber::tick(double dt)
   {
     if(connected_)
     {
-      LOG_WARNING("[WhyconPluginPlugin] All publishers disconnected from topic \"" << topic_ << "\"");
+      mc_rtc::log::warning("[WhyconPluginPlugin] All publishers disconnected from topic \"{}\"", topic_);
       connected_ = false;
     }
   }
@@ -170,7 +170,7 @@ const sva::PTransformd & WhyConSubscriber::X_0_marker(const std::string & marker
 
 void WhyConSubscriber::newMarker(const std::string & name)
 {
-  LOG_INFO("[WhyConSubscriber] New marker: " << name)
+  mc_rtc::log::info("[WhyConSubscriber] New marker: {}", name);
   ctl_.logger().addLogEntry("WhyConMarkers_" + name,
                             [this, name]() -> const sva::PTransformd & { return lshapes_.at(name).pos; });
   ctl_.logger().addLogEntry("WhyConMarkers_" + name + "_World",

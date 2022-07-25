@@ -34,7 +34,7 @@ private:
   std::shared_ptr<WhyConSubscriber> whyconSubscriber_;
   std::map<std::string, std::unique_ptr<WhyConUpdater>> taskUpdaters_;
 
-  std::string cameraSurface_;
+  std::string cameraFrame_;
   sva::PTransformd cameraOffset_;
 
   /* temporary hack. for now in mc_openrtm before() is called as soon as we do connectComponent, but

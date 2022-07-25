@@ -13,6 +13,7 @@ set(plugin_HDR
 ../include/mc_whycon_plugin/WhyConUpdater.h
 )
 
+option(AUTOLOAD_${PLUGIN_NAME}_PLUGIN "Automatically load ${PLUGIN_NAME} plugin" OFF)
 add_plugin(${PLUGIN_NAME} "${plugin_SRC}" "${plugin_HDR}")
 target_include_directories(${PLUGIN_NAME} PUBLIC $<INSTALL_INTERFACE:include> $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>)
 set_target_properties(${PLUGIN_NAME} PROPERTIES COMPILE_FLAGS "-DMC_WHYCON_PLUGIN_EXPORTS")

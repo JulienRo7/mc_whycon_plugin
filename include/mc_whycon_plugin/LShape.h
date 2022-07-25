@@ -16,18 +16,18 @@ struct LShape
   sva::PTransformd posW = sva::PTransformd::Identity();
 
   /** Robot to which the shape is attached */
-  std::string robot;
-  /** Surface on the robot to which the shape is attached */
-  std::string surface;
-  /** Offset relative to the surface on the robot */
-  sva::PTransformd surfaceOffset;
+  std::string robot{};
+  /** Frame on the robot to which the shape is attached */
+  std::string frame{};
+  /** Offset relative to the frame on the robot */
+  sva::PTransformd frameOffset = sva::PTransformd::Identity();
 
   /** Tick every iteration to update the visibility */
   void tick(double dt);
   /** Called to update the position of the marker from the vision system */
   void update(const sva::PTransformd & in, const sva::PTransformd & X_0_camera);
   /** time since last update */
-  inline double lastUpdate() const
+  inline double lastUpdate() const noexcept
   {
     return lastUpdate_;
   }

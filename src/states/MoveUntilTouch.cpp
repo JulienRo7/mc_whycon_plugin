@@ -4,11 +4,6 @@
 namespace whycon_plugin
 {
 
-void MoveUntilTouch::configure(const mc_rtc::Configuration & config)
-{
-  config_.load(config);
-}
-
 void MoveUntilTouch::start(mc_control::fsm::Controller & ctl)
 {
   config_("direction", direction_);
@@ -18,13 +13,13 @@ void MoveUntilTouch::start(mc_control::fsm::Controller & ctl)
   config_("pressureThreshold", pressureThreshold_);
   direction_.normalize();
 
-  task_ = mc_tasks::MetaTaskLoader::load<mc_tasks::SurfaceTransformTask>(ctl.solver(), config_("task"));
+  task_ = mc_tasks::MetaTaskLoader::load<mc_tasks::TransformTask>(ctl.solver(), config_("task"));
   ctl.solver().addTask(task_);
-  pressureZero_ = ctl.robot().surfaceWrench(task_->surface()).force();
+  pressureZero_ = ctl.robot().frame(task_->surface()).wrench().force();
   auto relative = config_("relative", std::string("robot"));
   if(relative == "robot")
   {
-    positionZero_ = ctl.robot().surfacePose(task_->surface());
+    positionZero_ = ctl.robot().frame(task_->surface()).position();
     worldDirection_ = positionZero_.rotation().inverse() * direction_;
   }
   else if(relative == "target")
@@ -39,12 +34,11 @@ void MoveUntilTouch::start(mc_control::fsm::Controller & ctl)
   }
   else
   {
-    LOG_ERROR_AND_THROW(std::runtime_error,
-                        "[" << name() << "] relative property only supports [robot, surface, world]");
+    mc_rtc::log::error_and_throw("[{}] relative property only supports [robot, frame, world]", name());
   }
 
   iter_ = 0;
-  LOG_INFO("[" << name() << "] Pressure threshold: " << pressureThreshold_)
+  mc_rtc::log::info("[{}] Pressure threshold: {}", name(), pressureThreshold_);
 
   if(ctl.config()("simulation", false))
   {
@@ -68,13 +62,13 @@ bool MoveUntilTouch::run(mc_control::fsm::Controller & ctl)
     return true;
   }
 
-  Eigen::Vector3d pressure = ctl.robot().surfaceWrench(task_->surface()).force();
+  Eigen::Vector3d pressure = ctl.robot().frame(task_->surface()).wrench().force();
   if((pressure - pressureZero_).norm() > pressureThreshold_)
   {
     iter_++;
     if(iter_ >= 5)
     {
-      LOG_INFO("[" << name() << "] Pressure threhsold detected")
+      mc_rtc::log::info("[{}] Pressure threhsold detected", name());
       done();
       output("OK");
       return true;
@@ -85,11 +79,11 @@ bool MoveUntilTouch::run(mc_control::fsm::Controller & ctl)
     iter_ = 0;
   }
   // Distance projected along direction
-  sva::PTransformd X_target_surface = ctl.robot().surfacePose(task_->surface()) * positionZero_.inv();
-  double distance = X_target_surface.translation().dot(direction_);
+  sva::PTransformd X_target_frame = ctl.robot().frame(task_->surface()).position() * positionZero_.inv();
+  double distance = X_target_frame.translation().dot(direction_);
   if(distance > distanceThreshold_)
   {
-    LOG_INFO("[" << name() << "] Distance threshold detected")
+    mc_rtc::log::info("[{}] Distance threshold detected", name());
     done();
     output("OK");
     return true;

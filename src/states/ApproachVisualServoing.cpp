@@ -59,7 +59,7 @@ void ApproachVisualServoing::setBoundedSpeed(mc_control::fsm::Controller & ctl, 
   maxSpeed_ = speed;
   if(constr_)
   {
-    constr_->removeBoundedSpeed(ctl.solver(), parentFrame);
+    constr_->removeBoundedSpeed(ctl.solver(), parentFrame.name());
   }
   Eigen::Vector6d spd;
   spd << M_PI * maxSpeed_, M_PI * maxSpeed_, M_PI * maxSpeed_, maxSpeed_, maxSpeed_, maxSpeed_;

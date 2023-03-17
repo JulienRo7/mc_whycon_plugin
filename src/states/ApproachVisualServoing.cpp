@@ -95,8 +95,7 @@ void ApproachVisualServoing::start(mc_control::fsm::Controller & ctl)
   pbvsConf("stiffness", stiffness_);
   pbvsConf("maxStiffness", maxStiffness_);
   pbvsTask_ = std::make_shared<mc_tasks::PositionBasedVisServoTask>(
-      ctl.robot().frame(robotFrame_),
-      sva::PTransformd::Identity(), /* No initial error, will be set by the updater later */
+      robot.frame(robotFrame_), sva::PTransformd::Identity(), /* No initial error, will be set by the updater later */
       stiffness_, pbvsConf("weight", 500.));
 
   if(pbvsConf.has("joints"))

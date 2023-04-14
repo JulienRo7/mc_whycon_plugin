@@ -1,44 +1,37 @@
-camera:
-  frame: TopCameraRGB
-  # Offset from the parent frame to the camera
-  offset:
-    translation: [0, 0, 0]
-    rotation: [0, 0, -1.57]
-
-# Options related to each method
-whycon:
-  topic: "/whycon_lshape/whycon_lshape" # Only used if simulation is false
-  # Configure where the markers are attached on a robot
-  # Only the markers in this list will be considered
-  markers:
-    bolt_panel:
-      robot: bolt_panel
-      relative: LShapeCenter
-
-    beam_left:
-      robot: bolting_structure
-      relative: BeamLeft
-      pos:
-        translation: [-0.15,0,0]
-
-    # Gripper position, relative to the robot hand
-    left_gripper:
-      #relative: LeftHandSideInner
-      relative: LForearmFront
-      pos:
-        translation: [0, 0, 0]
-        rotation: [0, 0, 0]
-
-    right_gripper:
-      relative: RHandFront
-      pos:
-        translation: [-0.025, -0.033, 0]
-        rotation: [0, 0, 0]
-
-    facom_tool:
-      robot: facom_tool
-      relative: LShapeCenter
-      pos:
-        translation: [0, 0, 0]
-        rotation: [0, 0, 0]
-        
+# Sample WhyconPlugin configuration
+# This file shows how you can set-up this plugin for your own use-case
+#
+# camera:
+#   frame: TopCameraRGB
+#   # Offset from the parent frame to the camera
+#   offset:
+#     translation: [0, 0, 0]
+#     rotation: [0, 0, -1.57]
+#
+# # Options related to each method
+# whycon:
+#   topic: "/whycon_lshape/whycon_lshape" # Only used if simulation is false
+#   # Configure where the markers are attached on a robot
+#   # Only the markers in this list will be considered
+#   markers:
+#     # Gripper position, relative to the robot hand
+#     left_gripper:
+#       #relative: LeftHandSideInner
+#       relative: LForearmFront
+#       pos:
+#         translation: [0, 0, 0]
+#         rotation: [0, 0, 0]
+#
+#     right_gripper:
+#       relative: RHandFront
+#       pos:
+#         translation: [-0.025, -0.033, 0]
+#         rotation: [0, 0, 0]
+#
+#     facom_tool:
+#       robot: facom_tool
+#       relative: LShapeCenter
+#       pos:
+#         translation: [0, 0, 0]
+#         rotation: [0, 0, 0]
+#

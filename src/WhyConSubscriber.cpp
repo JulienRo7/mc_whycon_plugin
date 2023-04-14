@@ -72,19 +72,6 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
           Eigen::Vector3d pos{s.pose.position.x, s.pose.position.y, s.pose.position.z};
           Eigen::Quaterniond q{s.pose.orientation.w, s.pose.orientation.x, s.pose.orientation.y, s.pose.orientation.z};
           lshapes_[name].update({q, pos}, X_0_camera);
-          if(!ctl_.datastore().has("WhyconPlugin::Marker::" + name))
-          {
-            newMarker(name);
-            // Add marker to the datastore
-            ctl_.datastore().make<std::pair<sva::PTransformd, double>>(
-                "WhyconPlugin::Marker::" + name, lshapes_.at(name).posW, lshapes_.at(name).lastUpdate());
-          }
-          else
-          {
-            ctl_.datastore().assign(
-                "WhyconPlugin::Marker::" + name,
-                std::pair<sva::PTransformd, double>(lshapes_.at(name).posW, lshapes_.at(name).lastUpdate()));
-          }
         }
       }
     };
@@ -147,6 +134,20 @@ void WhyConSubscriber::tick(double dt)
   {
     const auto & name = lshape.first;
     lshape.second.tick(dt);
+
+    if(!ctl_.datastore().has("WhyconPlugin::Marker::" + name))
+    {
+      newMarker(name);
+      // Add marker to the datastore
+      ctl_.datastore().make<std::pair<sva::PTransformd, double>>(
+          "WhyconPlugin::Marker::" + name, lshapes_.at(name).posW, lshapes_.at(name).lastUpdate());
+    }
+    else
+    {
+      ctl_.datastore().assign(
+          "WhyconPlugin::Marker::" + name,
+          std::pair<sva::PTransformd, double>(lshapes_.at(name).posW, lshapes_.at(name).lastUpdate()));
+    }
   }
 }
 

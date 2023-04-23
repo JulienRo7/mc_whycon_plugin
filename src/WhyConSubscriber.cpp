@@ -138,9 +138,6 @@ void WhyConSubscriber::tick(double dt)
     if(!ctl_.datastore().has("WhyconPlugin::Marker::" + name))
     {
       newMarker(name);
-      // Add marker to the datastore
-      ctl_.datastore().make<std::pair<sva::PTransformd, double>>(
-          "WhyconPlugin::Marker::" + name, lshapes_.at(name).posW, lshapes_.at(name).lastUpdate());
     }
     else
     {
@@ -176,6 +173,8 @@ void WhyConSubscriber::newMarker(const std::string & name)
                             [this, name]() -> const sva::PTransformd & { return lshapes_.at(name).pos; });
   ctl_.logger().addLogEntry("WhyConMarkers_" + name + "_World",
                             [this, name]() -> const sva::PTransformd & { return lshapes_.at(name).posW; });
+  ctl_.datastore().make<std::pair<sva::PTransformd, double>>("WhyconPlugin::Marker::" + name, lshapes_.at(name).posW,
+                                                             lshapes_.at(name).lastUpdate());
   auto gui = ctl_.gui();
   if(!gui)
   {

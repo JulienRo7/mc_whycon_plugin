@@ -99,7 +99,7 @@ void WhyconPlugin::before(mc_control::MCGlobalController & controller)
   if(!initialized_) return;
   // Get Camera position
   auto & ctl = controller.controller();
-  auto X_0_camera = cameraOffset_ * ctl.robot().frame(cameraFrame_).position();
+  auto X_0_camera = cameraOffset_ * ctl.realRobot().frame(cameraFrame_).position();
   whyconSubscriber_->cameraPose(X_0_camera);
   whyconSubscriber_->tick(controller.controller().timeStep);
 }

@@ -16,7 +16,7 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
   {
     mc_rtc::log::error_and_throw("[WhyConSubscriber] ROS is not available");
   }
-  bool simulation = ctl.config()("simulation", false);
+  ctl.config()("simulation", simulation_);
   auto methodConf = config("whycon");
 
   auto markers = methodConf("markers");
@@ -30,19 +30,19 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
     lshapes_[k].frame = relative;
     lshapes_[k].frameOffset = pos;
   }
+  readLshapes_ = lshapes_;
 
-  if(simulation)
+  if(simulation_)
   {
     for(auto k : markers.keys())
     {
-      markerUpdates_[k] = [this](const mc_control::MCController & ctl, LShape & shape) {
+      markerUpdates_[k] = [this, k](const mc_control::MCController & ctl, LShape & shape) {
         auto & robot = ctl.robot(shape.robot);
         auto X_camera_0 = X_0_camera.inv();
         auto X_relative_marker = shape.frameOffset;
         auto X_0_marker = X_relative_marker * robot.frame(shape.frame).position();
         shape.update(X_0_marker * X_camera_0, X_0_camera);
       };
-      newMarker(k);
     }
     // Simulate marker update
     updateThread_ = std::thread([this, markerUpdates_]() {
@@ -52,7 +52,7 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
         for(auto & m : markerUpdates_)
         {
           std::lock_guard<std::mutex> lock(updateMutex_);
-          m.second(ctl_, lshapes_[m.first]);
+          m.second(ctl_, readLshapes_[m.first]);
         }
         rt.sleep();
       }
@@ -67,11 +67,11 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
       {
         const auto & name = s.name;
         std::lock_guard<std::mutex> lock(updateMutex_);
-        if(lshapes_.count(name))
+        if(readLshapes_.count(name))
         { // supported marker
           Eigen::Vector3d pos{s.pose.position.x, s.pose.position.y, s.pose.position.z};
           Eigen::Quaterniond q{s.pose.orientation.w, s.pose.orientation.x, s.pose.orientation.y, s.pose.orientation.z};
-          lshapes_[name].update({q, pos}, X_0_camera);
+          readLshapes_[name].update({q, pos}, X_0_camera);
         }
       }
     };
@@ -89,8 +89,8 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
 
   ctl_.gui()->addElement({"Plugins", "WhyCon"},
                          mc_rtc::gui::Label("Status",
-                                            [this, simulation]() {
-                                              if(simulation)
+                                            [this]() {
+                                              if(simulation_)
                                               {
                                                 return "simulation";
                                               }
@@ -129,11 +129,13 @@ void WhyConSubscriber::tick(double dt)
       connected_ = false;
     }
   }
-  std::lock_guard<std::mutex> lock(updateMutex_);
-  for(auto & lshape : lshapes_)
   {
-    const auto & name = lshape.first;
-    lshape.second.tick(dt);
+    std::lock_guard<std::mutex> lock(updateMutex_);
+    lshapes_ = readLshapes_;
+  }
+  for(auto & [name, lshape] : lshapes_)
+  {
+    lshape.tick(dt);
 
     if(!ctl_.datastore().has("WhyconPlugin::Marker::" + name))
     {
@@ -145,24 +147,25 @@ void WhyConSubscriber::tick(double dt)
           "WhyconPlugin::Marker::" + name,
           std::pair<sva::PTransformd, double>(lshapes_.at(name).posW, lshapes_.at(name).lastUpdate()));
     }
+
+    // auto & markerFrame = ctl_.robot(lshape.robot).frame("WhyconMarker_" + name);
+    // const auto & parentFrame = ctl_.robot(lshape.robot).frame(lshape.frame);
+    // markerFrame.X_p_f(lshape.posW * parentFrame.position().inv());
   }
 }
 
 bool WhyConSubscriber::visible(const std::string & marker) const
 {
-  std::lock_guard<std::mutex> lock(updateMutex_);
   return lshapes_.count(marker) && lshapes_.at(marker).visible;
 }
 
 const sva::PTransformd & WhyConSubscriber::X_camera_marker(const std::string & marker) const
 {
-  std::lock_guard<std::mutex> lock(updateMutex_);
   return lshapes_.at(marker).pos;
 }
 
 const sva::PTransformd & WhyConSubscriber::X_0_marker(const std::string & marker) const
 {
-  std::lock_guard<std::mutex> lock(updateMutex_);
   return lshapes_.at(marker).posW;
 }
 

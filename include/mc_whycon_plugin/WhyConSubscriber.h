@@ -56,11 +56,13 @@ struct WhyConSubscriber : public VisionSubscriber
   }
 
 private:
+  bool simulation_ = false;
   bool running_ = true;
   std::shared_ptr<ros::NodeHandle> nh_;
   mc_control::MCController & ctl_;
   std::thread updateThread_;
   mutable std::mutex updateMutex_;
+  std::unordered_map<std::string, LShape> readLshapes_;
   std::unordered_map<std::string, LShape> lshapes_;
   void newMarker(const std::string & name);
   ros::Subscriber sub_;

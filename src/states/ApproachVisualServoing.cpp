@@ -39,16 +39,18 @@ sva::PTransformd ApproachVisualServoing::targetMarkerToFrameOffset(const mc_cont
 
 void ApproachVisualServoing::updateLookAt(const mc_control::fsm::Controller & ctl)
 {
+  if(!lookAt_)
+  {
+    return;
+  }
   const auto & observer = static_cast<const WhyConSubscriber &>(*subscriber_);
   const auto & robotMarker = observer.lshape(robotMarkerName_);
   const auto & targetMarker = observer.lshape(targetMarkerName_);
   auto & robot = ctl.robot(robotMarker.robot);
   auto & targetRobot = ctl.robot(targetMarker.robot);
-  auto targetFrame = sva::interpolate(targetMarker.frameOffset * targetRobot.frame(targetMarker.frame).position(),
-									  robotMarker.frameOffset * robot.frame(robotMarker.frame).position(), 0.5).translation();
-  if (lookAt_){
-	  lookAt_->target(targetFrame);
-  }
+  lookAt_->target(sva::interpolate(targetMarker.frameOffset * targetRobot.frame(targetMarker.frame).position(),
+                                   robotMarker.frameOffset * robot.frame(robotMarker.frame).position(), 0.5)
+                      .translation());
 }
 
 void ApproachVisualServoing::setBoundedSpeed(mc_control::fsm::Controller & ctl, double speed)
@@ -311,12 +313,12 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
       posDone_ = true;
       iter_ = 0;
       // Look halfway between the expected markers
-	  if (lookAt_)
-	  {
-		  ctl.solver().addTask(lookAt_);
-		  mc_rtc::log::info("[{}] completed, update lookat", name());
-		  updateLookAt(ctl);
-	  }
+      if(lookAt_)
+      {
+        ctl.solver().addTask(lookAt_);
+        mc_rtc::log::info("[{}] completed, update lookat", name());
+        updateLookAt(ctl);
+      }
       if(useVisualServoing_)
       {
         if(manualConfirmation_)

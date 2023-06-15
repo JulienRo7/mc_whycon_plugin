@@ -36,7 +36,8 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
   {
     for(auto k : markers.keys())
     {
-      markerUpdates_[k] = [this, k](const mc_control::MCController & ctl, LShape & shape) {
+      markerUpdates_[k] = [this, k](const mc_control::MCController & ctl, LShape & shape)
+      {
         auto & robot = ctl.robot(shape.robot);
         auto X_camera_0 = X_0_camera.inv();
         auto X_relative_marker = shape.frameOffset;
@@ -45,24 +46,26 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
       };
     }
     // Simulate marker update
-    updateThread_ = std::thread([this, markerUpdates_]() {
-      ros::Rate rt(30);
-      while(ros::ok() && running_)
-      {
-        for(auto & m : markerUpdates_)
+    updateThread_ = std::thread(
+        [this, markerUpdates_]()
         {
-          std::lock_guard<std::mutex> lock(updateMutex_);
-          m.second(ctl_, readLshapes_[m.first]);
-        }
-        rt.sleep();
-      }
-    });
+          ros::Rate rt(30);
+          while(ros::ok() && running_)
+          {
+            for(auto & m : markerUpdates_)
+            {
+              std::lock_guard<std::mutex> lock(updateMutex_);
+              m.second(ctl_, readLshapes_[m.first]);
+            }
+            rt.sleep();
+          }
+        });
   }
   else
   {
-    boost::function<void(const whycon_lshape::WhyConLShapeMsg &)> callback_ = [this](
-                                                                                  const whycon_lshape::WhyConLShapeMsg &
-                                                                                      msg) {
+    boost::function<void(const whycon_lshape::WhyConLShapeMsg &)> callback_ =
+        [this](const whycon_lshape::WhyConLShapeMsg & msg)
+    {
       for(const auto & s : msg.shapes)
       {
         const auto & name = s.name;
@@ -89,7 +92,8 @@ WhyConSubscriber::WhyConSubscriber(mc_control::MCController & ctl, const mc_rtc:
 
   ctl_.gui()->addElement({"Plugins", "WhyCon"},
                          mc_rtc::gui::Label("Status",
-                                            [this]() {
+                                            [this]()
+                                            {
                                               if(simulation_)
                                               {
                                                 return "simulation";
@@ -131,12 +135,14 @@ void WhyConSubscriber::tick(double dt)
   }
   {
     std::lock_guard<std::mutex> lock(updateMutex_);
+    for(auto & [name, lshape] : readLshapes_)
+    {
+      lshape.tick(dt);
+    }
     lshapes_ = readLshapes_;
   }
   for(auto & [name, lshape] : lshapes_)
   {
-    lshape.tick(dt);
-
     if(!ctl_.datastore().has("WhyconPlugin::Marker::" + name))
     {
       newMarker(name);

@@ -198,12 +198,15 @@ bool TouchWithAdmittance::updatePBVSTask(mc_control::fsm::Controller & ctl)
   visible_ = subscriber_->visible(targetMarkerName_) && subscriber_->visible(robotMarkerName_);
 
   // If the marker becomes not visible, disable task
-  if(!visible_ && wasVisible_)
+  if(!visible_)
   {
-    mc_rtc::log::warning("[{}] Disabling visual servoing updates, will re-enable when the markers become visible",
-                         name());
-    pbvsTask_->error(sva::PTransformd::Identity());
-    wasVisible_ = false;
+    if(wasVisible_)
+    {
+      mc_rtc::log::warning("[{}] Disabling visual servoing updates, will re-enable when the markers become visible",
+                           name());
+      pbvsTask_->error(sva::PTransformd::Identity());
+      wasVisible_ = false;
+    }
     return false;
   }
 

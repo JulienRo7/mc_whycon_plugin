@@ -39,6 +39,10 @@ sva::PTransformd ApproachVisualServoing::targetMarkerToFrameOffset(const mc_cont
 
 void ApproachVisualServoing::updateLookAt(const mc_control::fsm::Controller & ctl)
 {
+  if(!lookAt_)
+  {
+    return;
+  }
   const auto & observer = static_cast<const WhyConSubscriber &>(*subscriber_);
   const auto & robotMarker = observer.lshape(robotMarkerName_);
   const auto & targetMarker = observer.lshape(targetMarkerName_);
@@ -240,13 +244,16 @@ bool ApproachVisualServoing::updatePBVSTask(mc_control::fsm::Controller & ctl)
   visible_ = subscriber_->visible(targetMarkerName_) && subscriber_->visible(robotMarkerName_);
 
   // If the marker becomes not visible, disable task
-  if(!visible_ && wasVisible_)
+  if(!visible_)
   {
-    mc_rtc::log::warning("[{}] Disabling visual servoing updates, will re-enable when the markers become visible",
-                         name());
-    pbvsTask_->error(sva::PTransformd::Identity());
-    setBoundedSpeed(ctl, 0);
-    wasVisible_ = false;
+    if(wasVisible_)
+    {
+      mc_rtc::log::warning("[{}] Disabling visual servoing updates, will re-enable when the markers become visible",
+                           name());
+      pbvsTask_->error(sva::PTransformd::Identity());
+      setBoundedSpeed(ctl, 0);
+      wasVisible_ = false;
+    }
     return false;
   }
 
@@ -309,9 +316,12 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
       posDone_ = true;
       iter_ = 0;
       // Look halfway between the expected markers
-      ctl.solver().addTask(lookAt_);
-      mc_rtc::log::info("[{}] completed, update lookat", name());
-      updateLookAt(ctl);
+      if(lookAt_)
+      {
+        ctl.solver().addTask(lookAt_);
+        mc_rtc::log::info("[{}] completed, update lookat", name());
+        updateLookAt(ctl);
+      }
       if(useVisualServoing_)
       {
         if(manualConfirmation_)
@@ -326,7 +336,8 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
         ctl.gui()->addElement(
             category_,
             mc_rtc::gui::Label("Status",
-                               [this]() {
+                               [this]()
+                               {
                                  if(vsPaused_)
                                  {
                                    return "paused";
@@ -347,11 +358,11 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
                                }),
             mc_rtc::gui::Label("Marker " + robotMarkerName_,
                                [this]() { return subscriber_->visible(robotMarkerName_) ? "visible" : "not visible"; }),
-            mc_rtc::gui::Label(
-                "Marker " + targetMarkerName_,
-                [this]() { return subscriber_->visible(targetMarkerName_) ? "visible" : "not visible"; }),
+            mc_rtc::gui::Label("Marker " + targetMarkerName_, [this]()
+                               { return subscriber_->visible(targetMarkerName_) ? "visible" : "not visible"; }),
             mc_rtc::gui::Label("Error [m]",
-                               [this]() {
+                               [this]()
+                               {
                                  if(pbvsTask_)
                                  {
                                    return pbvsTask_->eval().tail(3).norm();
@@ -367,7 +378,8 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
             mc_rtc::gui::Label("Actual max speed", [this]() { return maxSpeed_; }),
             mc_rtc::gui::NumberInput(
                 "Max speed", [this]() { return maxSpeedDesired_; },
-                [this, &ctl](double s) {
+                [this, &ctl](double s)
+                {
                   maxSpeedDesired_ = std::max(0., s);
                   setBoundedSpeed(ctl, maxSpeedDesired_);
                 }),
@@ -380,12 +392,10 @@ bool ApproachVisualServoing::run(mc_control::fsm::Controller & ctl)
                 [this](const Eigen::Vector3d & t) { targetOffset_.translation() = t; }),
             mc_rtc::gui::ArrayInput(
                 "Offset wrt target frame (rotation) [deg]", {"r", "p", "y"},
-                [this]() -> Eigen::Vector3d {
-                  return mc_rbdyn::rpyFromMat(targetOffset_.rotation()) * 180. / mc_rtc::constants::PI;
-                },
-                [this](const Eigen::Vector3d & rpy) {
-                  targetOffset_.rotation() = mc_rbdyn::rpyToMat(rpy * mc_rtc::constants::PI / 180.);
-                }));
+                [this]() -> Eigen::Vector3d
+                { return mc_rbdyn::rpyFromMat(targetOffset_.rotation()) * 180. / mc_rtc::constants::PI; },
+                [this](const Eigen::Vector3d & rpy)
+                { targetOffset_.rotation() = mc_rbdyn::rpyToMat(rpy * mc_rtc::constants::PI / 180.); }));
       }
     }
   }
